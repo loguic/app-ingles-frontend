@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'services/api_service.dart';
+
 void main() {
   runApp(const AppIngles());
 }
@@ -27,6 +29,10 @@ class AppIngles extends StatelessWidget {
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
 
+  /// Backend service used to check if the API is available.
+  /// Servicio del backend usado para verificar si la API está disponible.
+  static final ApiService _apiService = ApiService();
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -34,13 +40,44 @@ class HomeScreen extends StatelessWidget {
         title: const Text('App Inglés'),
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
       ),
-      body: const Center(
+      body: Center(
         child: Padding(
-          padding: EdgeInsets.all(24),
-          child: Text(
-            'Bienvenido a App Inglés',
-            textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold),
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                'Bienvenido a App Inglés',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 24),
+              FutureBuilder<bool>(
+                future: _apiService.checkHealth(),
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const Text('Verificando backend...');
+                  }
+
+                  if (snapshot.hasError) {
+                    return const Text('Backend no disponible');
+                  }
+
+                  final isBackendAvailable = snapshot.data ?? false;
+
+                  return Text(
+                    isBackendAvailable
+                        ? 'Backend conectado'
+                        : 'Backend no disponible',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                      color: isBackendAvailable ? Colors.green : Colors.red,
+                    ),
+                  );
+                },
+              ),
+            ],
           ),
         ),
       ),

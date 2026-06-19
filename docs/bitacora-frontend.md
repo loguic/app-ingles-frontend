@@ -96,3 +96,22 @@
   - Extensión Remote SSH instalada.
   - Pendiente abrir Ubuntu VMware desde VS Code y abrir la carpeta del frontend.
 
+## B69 — Conexion inicial de la UI con ApiService
+
+- Objetivo: conectar la pantalla principal del frontend con el backend FastAPI.
+- Archivo modificado:
+  - lib/main.dart
+- Servicio utilizado:
+  - lib/services/api_service.dart
+- Cambio realizado:
+  - Se importo ApiService en la pantalla principal.
+  - Se uso FutureBuilder para ejecutar checkHealth().
+  - Se agrego un mensaje visual para mostrar si el backend esta conectado o no disponible.
+- Problema que resuelve:
+  - Permite que la UI consulte por primera vez el estado real del backend sin mezclar logica HTTP directamente en la pantalla.
+- Validaciones realizadas:
+  - flutter analyze
+  - flutter test
+- Resultado:
+  - No issues found.
+  - All tests passed.

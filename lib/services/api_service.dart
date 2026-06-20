@@ -5,8 +5,8 @@ import 'package:http/http.dart' as http;
 /// Service responsible for communicating with the backend API.
 /// Servicio responsable de comunicarse con la API del backend.
 class ApiService {
-  /// Base URL of the FastAPI backend exposed from WSL2 through Windows.
-  /// URL base del backend FastAPI expuesto desde WSL2 a través de Windows.
+/// Base URL of the FastAPI backend running locally in Ubuntu VMware.
+/// URL base del backend FastAPI ejecutándose localmente en Ubuntu VMware.
   static const String baseUrl = 'http://127.0.0.1:8000/api/v1';
 
   /// Checks if the backend health endpoint is available.
@@ -22,5 +22,20 @@ class ApiService {
     final data = jsonDecode(response.body) as Map<String, dynamic>;
 
     return data['status'] == 'ok';
+  }
+  /// Gets the available English levels from the backend.
+  /// Obtiene los niveles de inglés disponibles desde el backend.
+  Future<List<String>> getLevels() async {
+    final uri = Uri.parse('$baseUrl/levels');
+    final response = await http.get(uri);
+
+    if (response.statusCode != 200) {
+      return [];
+    }
+
+    final data = jsonDecode(response.body) as Map<String, dynamic>;
+    final levels = data['levels'] as List<dynamic>;
+
+    return levels.cast<String>();
   }
 }

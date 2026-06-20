@@ -77,6 +77,34 @@ class HomeScreen extends StatelessWidget {
                   );
                 },
               ),
+              const SizedBox(height: 24),
+              FutureBuilder<List<String>>(
+                future: _apiService.getLevels(),
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const Text('Cargando niveles...');
+                  }
+
+                  if (snapshot.hasError || !snapshot.hasData) {
+                    return const Text('No se pudieron cargar los niveles');
+                  }
+
+                  final levels = snapshot.data!;
+
+                  return Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    alignment: WrapAlignment.center,
+                    children: levels
+                        .map(
+                          (level) => Chip(
+                            label: Text(level),
+                          ),
+                        )
+                        .toList(),
+                  );
+                },
+              ),
             ],
           ),
         ),

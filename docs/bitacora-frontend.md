@@ -203,3 +203,41 @@
 - Decisión técnica:
   - Ubuntu VMware local queda como entorno principal del proyecto.
   - WSL2 deja de ser el entorno principal para app-ingles.
+
+## B71 — Verificación completa del sistema en Ubuntu
+- Objetivo: validar que backend, frontend, PostgreSQL y Git funcionan correctamente desde Ubuntu VMware local.
+- Validaciones realizadas:
+  - Backend health:
+    - curl http://127.0.0.1:8000/api/v1/health
+  - Frontend:
+    - flutter analyze
+    - flutter test
+  - Backend:
+    - pytest
+  - Git:
+    - git status -sb en backend
+    - git status -sb en frontend
+- Resultado:
+  - Backend respondio {"status":"ok"}.
+  - Frontend sin errores de analisis.
+  - Frontend tests passed.
+  - Backend 17 tests passed.
+  - Git limpio en backend y frontend.
+- Decision tecnica:
+  - Se confirma Ubuntu VMware local como entorno principal estable para app-ingles.
+## B72 — Mostrar niveles desde el backend
+
+- Objetivo: mostrar los niveles A1-C2 en la pantalla principal.
+- Archivos modificados:
+  - lib/services/api_service.dart
+  - lib/main.dart
+- Cambio realizado:
+  - Se agrego getLevels() en ApiService.
+  - Se conecto HomeScreen al endpoint /levels.
+  - Se muestran los niveles usando chips en la interfaz.
+- Validaciones realizadas:
+  - flutter analyze
+  - flutter test
+- Resultado:
+  - No issues found.
+  - All tests passed.

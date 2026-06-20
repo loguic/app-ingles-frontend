@@ -7,7 +7,7 @@ import 'package:http/http.dart' as http;
 class ApiService {
   /// Base URL of the FastAPI backend exposed from WSL2 through Windows.
   /// URL base del backend FastAPI expuesto desde WSL2 a través de Windows.
-  static const String baseUrl = 'http://192.168.1.33:8000/api/v1';
+  static const String baseUrl = 'http://127.0.0.1:8000/api/v1';
 
   /// Checks if the backend health endpoint is available.
   /// Verifica si el endpoint de salud del backend está disponible.

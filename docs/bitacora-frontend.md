@@ -115,3 +115,91 @@
 - Resultado:
   - No issues found.
   - All tests passed.
+
+
+## B70 — Migración del backend a Ubuntu VMware
+
+* Objetivo: migrar el backend desde WSL2 hacia Ubuntu VMware para unificar el entorno de desarrollo.
+* Ruta anterior:
+
+  * WSL2: ~/proyectos/app-ingles-backend
+* Ruta nueva:
+
+  * Ubuntu VMware: ~/projects/app_ingles_backend/app-ingles-backend
+* Cambio realizado:
+
+  * Se clono el repositorio backend desde GitHub en Ubuntu VMware.
+  * Se creo un entorno virtual local .venv.
+  * Se instalaron las dependencias desde requirements.txt.
+  * Se instalo PostgreSQL en Ubuntu VMware.
+  * Se creo la base de datos local app_ingles_db.
+  * Se creo el usuario PostgreSQL appIngles.
+  * Se creo el archivo .env local con DATABASE_URL.
+  * Se ejecutó el script app.db.create_tables para crear la tabla user_progress.
+* Problema que resuelve:
+
+  * Elimina la dependencia de WSL2, Windows portproxy y comunicacion cruzada entre Windows y Ubuntu.
+  * Permite trabajar backend, frontend, PostgreSQL, VS Code, Flutter y Git/GitHub desde Ubuntu VMware local.
+* Validaciones realizadas:
+
+  * pytest
+  * uvicorn app.main:app
+  * curl http://127.0.0.1:8000/api/v1/health
+* Resultado:
+
+  * 17 tests passed.
+  * Backend levantado en http://0.0.0.0:8000.
+  * Endpoint /api/v1/health respondio {"status":"ok"}.
+* Decision tecnica:
+
+  * Ubuntu VMware local queda como entorno principal del proyecto app-ingles.
+  * WSL2 deja de ser el entorno principal para este proyecto.
+## B70 — Actualización del frontend para backend local
+
+* Objetivo: conectar el frontend Flutter con el backend migrado a Ubuntu VMware.
+* Archivo modificado:
+
+  * lib/services/api_service.dart
+* Cambio realizado:
+
+  * Se cambio la URL base del ApiService.
+  * Antes apuntaba a http://192.168.1.33:8000/api/v1.
+  * Ahora apunta a http://127.0.0.1:8000/api/v1.
+* Problema que resuelve:
+
+  * Elimina la dependencia de Windows, WSL2 y portproxy para conectar frontend y backend.
+  * Permite que Flutter consuma el backend FastAPI ejecutado localmente en Ubuntu VMware.
+* Validaciones realizadas:
+
+  * flutter analyze
+  * flutter test
+* Resultado:
+
+  * No issues found.
+  * All tests passed.
+* Decision tecnica:
+
+  * Ubuntu VMware local queda como entorno principal para frontend y backend.
+
+## B70 — Migración del backend a Ubuntu VMware
+
+- Objetivo: migrar el backend desde WSL2 hacia Ubuntu VMware para unificar el entorno de desarrollo.
+- Ruta nueva:
+  - ~/projects/app_ingles_backend/app-ingles-backend
+- Cambios realizados:
+  - Se clonó el backend desde GitHub.
+  - Se creó el entorno virtual .venv.
+  - Se instalaron dependencias desde requirements.txt.
+  - Se instaló PostgreSQL local en Ubuntu VMware.
+  - Se creó la base de datos app_ingles_db.
+  - Se creó el usuario PostgreSQL appIngles.
+  - Se creó el archivo .env local con DATABASE_URL.
+  - Se ejecutó app.db.create_tables para crear la tabla user_progress.
+  - Se agregó .venv/ al .gitignore.
+- Validaciones realizadas:
+  - pytest: 17 tests passed.
+  - Backend levantado con Uvicorn.
+  - Endpoint /api/v1/health respondió {"status":"ok"}.
+- Decisión técnica:
+  - Ubuntu VMware local queda como entorno principal del proyecto.
+  - WSL2 deja de ser el entorno principal para app-ingles.

@@ -241,3 +241,20 @@
 - Resultado:
   - No issues found.
   - All tests passed.
+
+## B73 — Separación de HomeScreen
+
+- Objetivo: separar la pantalla principal en su propio archivo.
+- Archivos modificados:
+  - lib/main.dart
+  - lib/screens/home_screen.dart
+- Cambio realizado:
+  - Se creó la carpeta lib/screens.
+  - Se movió HomeScreen desde main.dart hacia lib/screens/home_screen.dart.
+  - main.dart quedó como punto de entrada principal de la app.
+- Validaciones realizadas:
+  - flutter analyze
+  - flutter test
+- Resultado:
+  - No issues found.
+  - All tests passed.

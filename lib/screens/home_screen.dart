@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../models/level.dart';
+import '../models/unit.dart';
+
 import '../services/api_service.dart';
 
 /// Initial home screen shown when the app starts.
@@ -78,6 +80,34 @@ class HomeScreen extends StatelessWidget {
                         .map(
                           (level) => Chip(
                             label: Text(level.code),
+                          ),
+                        )
+                        .toList(),
+                  );
+                },
+              ),
+                            const SizedBox(height: 24),
+              FutureBuilder<List<Unit>>(
+                future: _apiService.getUnits('A1'),
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const Text('Cargando unidades A1...');
+                  }
+
+                  if (snapshot.hasError || !snapshot.hasData) {
+                    return const Text('No se pudieron cargar las unidades');
+                  }
+
+                  final units = snapshot.data!;
+
+                  return Column(
+                    children: units
+                        .map(
+                          (unit) => Card(
+                            child: ListTile(
+                              title: Text(unit.title),
+                              subtitle: Text(unit.id),
+                            ),
                           ),
                         )
                         .toList(),

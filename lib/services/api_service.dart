@@ -1,5 +1,6 @@
 import 'dart:convert';
 import '../models/level.dart';
+import '../models/unit.dart';
 import 'package:http/http.dart' as http;
 
 /// Service responsible for communicating with the backend API.
@@ -38,4 +39,26 @@ class ApiService {
 
     return levels.cast<String>().map(Level.fromString).toList();
   }
+
+  /// Gets the learning units for a specific English level.
+  /// Obtiene las unidades de aprendizaje de un nivel específico.
+  Future<List<Unit>> getUnits(String levelCode) async {
+    final uri = Uri.parse('$baseUrl/content/levels/$levelCode/units');
+    final response = await http.get(uri);
+
+    if (response.statusCode != 200) {
+      return [];
+    }
+
+    final data = jsonDecode(response.body) as List<dynamic>;
+
+    return data
+        .cast<Map<String, dynamic>>()
+        .map(Unit.fromJson)
+        .toList();
+  }
+
+
+
+
 }

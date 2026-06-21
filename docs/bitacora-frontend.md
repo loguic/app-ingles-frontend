@@ -258,3 +258,39 @@
 - Resultado:
   - No issues found.
   - All tests passed.
+
+## B74 — Modelo Level para niveles
+
+- Objetivo: preparar una estructura escalable para representar niveles.
+- Archivos modificados:
+  - lib/models/level.dart
+  - lib/services/api_service.dart
+  - lib/screens/home_screen.dart
+- Cambio realizado:
+  - Se creó el modelo Level.
+  - ApiService.getLevels() ahora devuelve List<Level>.
+  - HomeScreen usa level.code para mostrar los niveles.
+- Validaciones realizadas:
+  - flutter analyze
+  - flutter test
+- Resultado:
+  - No issues found.
+  - All tests passed.
+
+## B75 — Mostrar unidades A1 desde el backend
+
+- Objetivo: mostrar unidades del nivel A1 desde el backend.
+- Archivos modificados:
+  - lib/models/unit.dart
+  - lib/services/api_service.dart
+  - lib/screens/home_screen.dart
+- Cambio realizado:
+  - Se creó el modelo Unit.
+  - Se agregó getUnits(String levelCode) en ApiService.
+  - HomeScreen muestra unidades A1 usando Card y ListTile.
+- Validaciones realizadas:
+  - flutter analyze
+  - flutter test
+- Resultado:
+  - No issues found.
+  - All tests passed.

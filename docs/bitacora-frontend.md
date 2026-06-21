@@ -422,3 +422,12 @@
 - Resultado:
   - No issues found.
   - All tests passed.
+## B83 — Separar selector de niveles en widget propio
+
+- Se creó `lib/widgets/level_selector_card.dart`.
+- `HomeScreen` ahora delega el selector de niveles al widget `LevelSelectorCard`.
+- Se mantiene la lógica de selección de nivel en `HomeScreen`.
+- Validación ejecutada:
+  - `flutter analyze` → No issues found.
+  - `flutter test` → All tests passed.
+

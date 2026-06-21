@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 
 import '../models/lesson.dart';
-import '../models/level.dart';
 import '../services/api_service.dart';
 import '../widgets/info_card.dart';
 import '../widgets/lesson_detail_card.dart';
 import '../widgets/lesson_list_card.dart';
+import '../widgets/level_selector_card.dart';
 import '../widgets/unit_list_card.dart';
 
 /// Initial home screen shown when the app starts.
@@ -64,7 +64,10 @@ class _HomeScreenState extends State<HomeScreen> {
                 const SizedBox(height: 16),
                 _buildBackendStatus(),
                 const SizedBox(height: 16),
-                _buildLevelsSection(),
+                LevelSelectorCard(
+                  selectedLevelCode: _selectedLevelCode,
+                  onLevelSelected: _selectLevel,
+                ),
                 const SizedBox(height: 16),
                 UnitListCard(
                   selectedLevelCode: _selectedLevelCode,
@@ -134,40 +137,6 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         );
       },
-    );
-  }
-
-  Widget _buildLevelsSection() {
-    return InfoCard(
-      title: 'Nivel',
-      child: FutureBuilder<List<Level>>(
-        future: _apiService.getLevels(),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Text('Cargando niveles...');
-          }
-
-          if (snapshot.hasError || !snapshot.hasData) {
-            return const Text('No se pudieron cargar los niveles');
-          }
-
-          final levels = snapshot.data!;
-
-          return Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: levels.map((level) {
-              final isSelected = level.code == _selectedLevelCode;
-
-              return ChoiceChip(
-                label: Text(level.code),
-                selected: isSelected,
-                onSelected: (_) => _selectLevel(level.code),
-              );
-            }).toList(),
-          );
-        },
-      ),
     );
   }
 

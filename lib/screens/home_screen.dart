@@ -5,6 +5,7 @@ import '../models/level.dart';
 import '../models/unit.dart';
 import '../services/api_service.dart';
 import '../widgets/info_card.dart';
+import '../widgets/lesson_detail_card.dart';
 
 /// Initial home screen shown when the app starts.
 /// Pantalla inicial que se muestra al arrancar la aplicación.
@@ -259,69 +260,7 @@ class _HomeScreenState extends State<HomeScreen> {
           );
         }
 
-        final lesson = snapshot.data!;
-
-        return InfoCard(
-          title: lesson.title,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              if (lesson.objective != null)
-                LessonContentSection(
-                  title: 'Objetivo',
-                  child: Text(lesson.objective!),
-                ),
-              LessonContentSection(
-                title: 'Vocabulario',
-                child: Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: lesson.vocabulary
-                      .map((word) => Chip(label: Text(word)))
-                      .toList(),
-                ),
-              ),
-              LessonContentSection(
-                title: 'Gramática',
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: lesson.grammar
-                      .map((item) => Text('• $item'))
-                      .toList(),
-                ),
-              ),
-              LessonContentSection(
-                title: 'Ejemplos',
-                child: Column(
-                  children: lesson.examples
-                      .map(
-                        (example) => ListTile(
-                          contentPadding: EdgeInsets.zero,
-                          title: Text(example.en),
-                          subtitle: Text(example.es),
-                        ),
-                      )
-                      .toList(),
-                ),
-              ),
-              LessonContentSection(
-                title: 'Ejercicios',
-                child: Column(
-                  children: lesson.exercises
-                      .map(
-                        (exercise) => ListTile(
-                          contentPadding: EdgeInsets.zero,
-                          leading: const Icon(Icons.quiz),
-                          title: Text(exercise.prompt),
-                          subtitle: Text(exercise.options.join(' / ')),
-                        ),
-                      )
-                      .toList(),
-                ),
-              ),
-            ],
-          ),
-        );
+        return LessonDetailCard(lesson: snapshot.data!);
       },
     );
   }

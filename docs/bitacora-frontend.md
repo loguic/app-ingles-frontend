@@ -386,3 +386,20 @@
 - Resultado:
   - No issues found.
   - All tests passed.
+
+## B81 — Separación del detalle de lección en widget propio
+
+- Objetivo: mover el detalle completo de la lección fuera de HomeScreen.
+- Archivos modificados:
+  - lib/screens/home_screen.dart
+  - lib/widgets/lesson_detail_card.dart
+- Cambio realizado:
+  - Se creó LessonDetailCard como widget específico para mostrar el detalle de una lección.
+  - HomeScreen ahora delega la visualización del detalle a LessonDetailCard.
+  - HomeScreen queda más enfocado en coordinar nivel, unidad y lección.
+- Validaciones realizadas:
+  - flutter analyze
+  - flutter test
+- Resultado:
+  - No issues found.
+  - All tests passed.

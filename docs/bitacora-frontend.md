@@ -350,3 +350,21 @@
 - Resultado:
   - No issues found.
   - All tests passed.
+
+## B79 — Mejora visual del detalle de lección
+
+- Objetivo: mejorar la estructura visual del detalle de lección sin cambiar la lógica ni el backend.
+- Archivo modificado:
+  - lib/screens/home_screen.dart
+- Cambio realizado:
+  - Se reorganizó HomeScreen en métodos privados de construcción visual.
+  - Se agregaron tarjetas para separar secciones.
+  - Se controló el ancho máximo de la pantalla.
+  - Se añadieron iconos básicos para unidades, lecciones y ejercicios.
+  - Se separó el detalle de lección en objetivo, vocabulario, gramática, ejemplos y ejercicios.
+- Validaciones realizadas:
+  - flutter analyze
+  - flutter test
+- Resultado:
+  - No issues found.
+  - All tests passed.

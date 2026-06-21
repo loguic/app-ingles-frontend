@@ -7,8 +7,8 @@ import 'package:http/http.dart' as http;
 /// Service responsible for communicating with the backend API.
 /// Servicio responsable de comunicarse con la API del backend.
 class ApiService {
-/// Base URL of the FastAPI backend running locally in Ubuntu VMware.
-/// URL base del backend FastAPI ejecutándose localmente en Ubuntu VMware.
+  /// Base URL of the FastAPI backend running locally in Ubuntu VMware.
+  /// URL base del backend FastAPI ejecutándose localmente en Ubuntu VMware.
   static const String baseUrl = 'http://127.0.0.1:8000/api/v1';
 
   /// Checks if the backend health endpoint is available.
@@ -25,6 +25,7 @@ class ApiService {
 
     return data['status'] == 'ok';
   }
+
   /// Gets the available English levels from the backend.
   /// Obtiene los niveles de inglés disponibles desde el backend.
   Future<List<Level>> getLevels() async {
@@ -53,12 +54,10 @@ class ApiService {
 
     final data = jsonDecode(response.body) as List<dynamic>;
 
-    return data
-        .cast<Map<String, dynamic>>()
-        .map(Unit.fromJson)
-        .toList();
+    return data.cast<Map<String, dynamic>>().map(Unit.fromJson).toList();
   }
-    /// Gets the lessons for a specific learning unit.
+
+  /// Gets the lessons for a specific learning unit.
   /// Obtiene las lecciones de una unidad de aprendizaje específica.
   Future<List<Lesson>> getLessons(String unitId) async {
     final uri = Uri.parse('$baseUrl/content/units/$unitId/lessons');
@@ -70,13 +69,21 @@ class ApiService {
 
     final data = jsonDecode(response.body) as List<dynamic>;
 
-    return data
-        .cast<Map<String, dynamic>>()
-        .map(Lesson.fromJson)
-        .toList();
+    return data.cast<Map<String, dynamic>>().map(Lesson.fromJson).toList();
   }
 
+  /// Gets the full detail of a specific lesson.
+  /// Obtiene el detalle completo de una lección específica.
+  Future<Lesson?> getLesson(String lessonId) async {
+    final uri = Uri.parse('$baseUrl/content/lessons/$lessonId');
+    final response = await http.get(uri);
 
+    if (response.statusCode != 200) {
+      return null;
+    }
 
+    final data = jsonDecode(response.body) as Map<String, dynamic>;
 
+    return Lesson.fromJson(data);
+  }
 }

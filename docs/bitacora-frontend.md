@@ -331,3 +331,22 @@
 - Resultado:
   - No issues found.
   - All tests passed.
+
+## B78 — Selección de lección y detalle completo
+
+- Objetivo: permitir seleccionar una lección y mostrar su detalle completo desde el backend.
+- Archivos modificados:
+  - lib/models/lesson.dart
+  - lib/services/api_service.dart
+  - lib/screens/home_screen.dart
+- Cambio realizado:
+  - Se amplió el modelo Lesson para soportar vocabulary, grammar, examples y exercises.
+  - Se agregó getLesson(String lessonId) en ApiService.
+  - HomeScreen permite seleccionar una lección.
+  - Al seleccionar una lección se muestra su objetivo, vocabulario, gramática, ejemplos y ejercicios.
+- Validaciones realizadas:
+  - flutter analyze
+  - flutter test
+- Resultado:
+  - No issues found.
+  - All tests passed.

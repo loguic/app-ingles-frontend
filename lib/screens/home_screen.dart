@@ -19,17 +19,26 @@ class _HomeScreenState extends State<HomeScreen> {
 
   String _selectedLevelCode = 'A1';
   String? _selectedUnitId;
+  String? _selectedLessonId;
 
   void _selectLevel(String levelCode) {
     setState(() {
       _selectedLevelCode = levelCode;
       _selectedUnitId = null;
+      _selectedLessonId = null;
     });
   }
 
   void _selectUnit(String unitId) {
     setState(() {
       _selectedUnitId = unitId;
+      _selectedLessonId = null;
+    });
+  }
+
+  void _selectLesson(String lessonId) {
+    setState(() {
+      _selectedLessonId = lessonId;
     });
   }
 
@@ -186,6 +195,8 @@ class _HomeScreenState extends State<HomeScreen> {
                                 child: ListTile(
                                   title: Text(lesson.title),
                                   subtitle: Text(lesson.objective ?? lesson.id),
+                                  selected: lesson.id == _selectedLessonId,
+                                  onTap: () => _selectLesson(lesson.id),
                                 ),
                               ),
                             )
@@ -194,6 +205,84 @@ class _HomeScreenState extends State<HomeScreen> {
                     },
                   ),
                 ],
+                const SizedBox(height: 24),
+                if (_selectedLessonId != null)
+                  FutureBuilder<Lesson?>(
+                    future: _apiService.getLesson(_selectedLessonId!),
+                    builder: (context, snapshot) {
+                      if (snapshot.connectionState == ConnectionState.waiting) {
+                        return const Text('Cargando detalle de lección...');
+                      }
+
+                      if (snapshot.hasError || snapshot.data == null) {
+                        return const Text('No se pudo cargar la lección');
+                      }
+
+                      final lesson = snapshot.data!;
+
+                      return Card(
+                        child: Padding(
+                          padding: const EdgeInsets.all(16),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                lesson.title,
+                                style: const TextStyle(
+                                  fontSize: 22,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              if (lesson.objective != null) ...[
+                                const SizedBox(height: 12),
+                                Text(lesson.objective!),
+                              ],
+                              const SizedBox(height: 16),
+                              const Text(
+                                'Vocabulario',
+                                style: TextStyle(fontWeight: FontWeight.bold),
+                              ),
+                              const SizedBox(height: 8),
+                              Wrap(
+                                spacing: 8,
+                                children: lesson.vocabulary
+                                    .map((word) => Chip(label: Text(word)))
+                                    .toList(),
+                              ),
+                              const SizedBox(height: 16),
+                              const Text(
+                                'Gramática',
+                                style: TextStyle(fontWeight: FontWeight.bold),
+                              ),
+                              ...lesson.grammar.map((item) => Text('- $item')),
+                              const SizedBox(height: 16),
+                              const Text(
+                                'Ejemplos',
+                                style: TextStyle(fontWeight: FontWeight.bold),
+                              ),
+                              ...lesson.examples.map(
+                                (example) => ListTile(
+                                  title: Text(example.en),
+                                  subtitle: Text(example.es),
+                                ),
+                              ),
+                              const SizedBox(height: 16),
+                              const Text(
+                                'Ejercicios',
+                                style: TextStyle(fontWeight: FontWeight.bold),
+                              ),
+                              ...lesson.exercises.map(
+                                (exercise) => ListTile(
+                                  title: Text(exercise.prompt),
+                                  subtitle: Text(exercise.options.join(' / ')),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                  ),
               ],
             ),
           ),

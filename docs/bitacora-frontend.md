@@ -403,3 +403,22 @@
 - Resultado:
   - No issues found.
   - All tests passed.
+
+## B82 — Separación de listas de unidades y lecciones
+
+- Objetivo: mover las listas de unidades y lecciones fuera de HomeScreen.
+- Archivos modificados:
+  - lib/screens/home_screen.dart
+  - lib/widgets/unit_list_card.dart
+  - lib/widgets/lesson_list_card.dart
+- Cambio realizado:
+  - Se creó UnitListCard para mostrar unidades del nivel seleccionado.
+  - Se creó LessonListCard para mostrar lecciones de la unidad seleccionada.
+  - HomeScreen ahora coordina estado y delega la presentación de listas.
+  - Se corrigieron constructores agregando const.
+- Validaciones realizadas:
+  - flutter analyze
+  - flutter test
+- Resultado:
+  - No issues found.
+  - All tests passed.

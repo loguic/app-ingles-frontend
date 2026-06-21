@@ -2,10 +2,11 @@ import 'package:flutter/material.dart';
 
 import '../models/lesson.dart';
 import '../models/level.dart';
-import '../models/unit.dart';
 import '../services/api_service.dart';
 import '../widgets/info_card.dart';
 import '../widgets/lesson_detail_card.dart';
+import '../widgets/lesson_list_card.dart';
+import '../widgets/unit_list_card.dart';
 
 /// Initial home screen shown when the app starts.
 /// Pantalla inicial que se muestra al arrancar la aplicación.
@@ -65,9 +66,19 @@ class _HomeScreenState extends State<HomeScreen> {
                 const SizedBox(height: 16),
                 _buildLevelsSection(),
                 const SizedBox(height: 16),
-                _buildUnitsSection(),
-                const SizedBox(height: 16),
-                if (_selectedUnitId != null) _buildLessonsSection(),
+                UnitListCard(
+                  selectedLevelCode: _selectedLevelCode,
+                  selectedUnitId: _selectedUnitId,
+                  onUnitSelected: _selectUnit,
+                ),
+                if (_selectedUnitId != null) ...[
+                  const SizedBox(height: 16),
+                  LessonListCard(
+                    selectedUnitId: _selectedUnitId!,
+                    selectedLessonId: _selectedLessonId,
+                    onLessonSelected: _selectLesson,
+                  ),
+                ],
                 if (_selectedLessonId != null) ...[
                   const SizedBox(height: 16),
                   _buildLessonDetailSection(),
@@ -154,88 +165,6 @@ class _HomeScreenState extends State<HomeScreen> {
                 onSelected: (_) => _selectLevel(level.code),
               );
             }).toList(),
-          );
-        },
-      ),
-    );
-  }
-
-  Widget _buildUnitsSection() {
-    return InfoCard(
-      title: 'Unidades de $_selectedLevelCode',
-      child: FutureBuilder<List<Unit>>(
-        future: _apiService.getUnits(_selectedLevelCode),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return Text('Cargando unidades $_selectedLevelCode...');
-          }
-
-          if (snapshot.hasError || !snapshot.hasData) {
-            return const Text('No se pudieron cargar las unidades');
-          }
-
-          final units = snapshot.data!;
-
-          if (units.isEmpty) {
-            return Text('No hay unidades para $_selectedLevelCode');
-          }
-
-          return Column(
-            children: units
-                .map(
-                  (unit) => Card(
-                    margin: const EdgeInsets.only(bottom: 8),
-                    child: ListTile(
-                      leading: const Icon(Icons.menu_book),
-                      title: Text(unit.title),
-                      subtitle: Text(unit.id),
-                      selected: unit.id == _selectedUnitId,
-                      onTap: () => _selectUnit(unit.id),
-                    ),
-                  ),
-                )
-                .toList(),
-          );
-        },
-      ),
-    );
-  }
-
-  Widget _buildLessonsSection() {
-    return InfoCard(
-      title: 'Lecciones de $_selectedUnitId',
-      child: FutureBuilder<List<Lesson>>(
-        future: _apiService.getLessons(_selectedUnitId!),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Text('Cargando lecciones...');
-          }
-
-          if (snapshot.hasError || !snapshot.hasData) {
-            return const Text('No se pudieron cargar las lecciones');
-          }
-
-          final lessons = snapshot.data!;
-
-          if (lessons.isEmpty) {
-            return const Text('No hay lecciones para esta unidad');
-          }
-
-          return Column(
-            children: lessons
-                .map(
-                  (lesson) => Card(
-                    margin: const EdgeInsets.only(bottom: 8),
-                    child: ListTile(
-                      leading: const Icon(Icons.school),
-                      title: Text(lesson.title),
-                      subtitle: Text(lesson.objective ?? lesson.id),
-                      selected: lesson.id == _selectedLessonId,
-                      onTap: () => _selectLesson(lesson.id),
-                    ),
-                  ),
-                )
-                .toList(),
           );
         },
       ),

@@ -1,5 +1,5 @@
 import 'dart:convert';
-
+import '../models/level.dart';
 import 'package:http/http.dart' as http;
 
 /// Service responsible for communicating with the backend API.
@@ -25,7 +25,7 @@ class ApiService {
   }
   /// Gets the available English levels from the backend.
   /// Obtiene los niveles de inglés disponibles desde el backend.
-  Future<List<String>> getLevels() async {
+  Future<List<Level>> getLevels() async {
     final uri = Uri.parse('$baseUrl/levels');
     final response = await http.get(uri);
 
@@ -36,6 +36,6 @@ class ApiService {
     final data = jsonDecode(response.body) as Map<String, dynamic>;
     final levels = data['levels'] as List<dynamic>;
 
-    return levels.cast<String>();
+    return levels.cast<String>().map(Level.fromString).toList();
   }
 }

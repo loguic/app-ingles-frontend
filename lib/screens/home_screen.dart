@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../models/level.dart';
 import '../services/api_service.dart';
 
 /// Initial home screen shown when the app starts.
@@ -56,7 +57,7 @@ class HomeScreen extends StatelessWidget {
                 },
               ),
               const SizedBox(height: 24),
-              FutureBuilder<List<String>>(
+              FutureBuilder<List<Level>>(
                 future: _apiService.getLevels(),
                 builder: (context, snapshot) {
                   if (snapshot.connectionState == ConnectionState.waiting) {
@@ -76,7 +77,7 @@ class HomeScreen extends StatelessWidget {
                     children: levels
                         .map(
                           (level) => Chip(
-                            label: Text(level),
+                            label: Text(level.code),
                           ),
                         )
                         .toList(),

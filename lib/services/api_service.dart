@@ -1,6 +1,7 @@
 import 'dart:convert';
 import '../models/level.dart';
 import '../models/unit.dart';
+import '../models/lesson.dart';
 import 'package:http/http.dart' as http;
 
 /// Service responsible for communicating with the backend API.
@@ -55,6 +56,23 @@ class ApiService {
     return data
         .cast<Map<String, dynamic>>()
         .map(Unit.fromJson)
+        .toList();
+  }
+    /// Gets the lessons for a specific learning unit.
+  /// Obtiene las lecciones de una unidad de aprendizaje específica.
+  Future<List<Lesson>> getLessons(String unitId) async {
+    final uri = Uri.parse('$baseUrl/content/units/$unitId/lessons');
+    final response = await http.get(uri);
+
+    if (response.statusCode != 200) {
+      return [];
+    }
+
+    final data = jsonDecode(response.body) as List<dynamic>;
+
+    return data
+        .cast<Map<String, dynamic>>()
+        .map(Lesson.fromJson)
         .toList();
   }
 

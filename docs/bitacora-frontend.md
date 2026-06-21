@@ -312,3 +312,22 @@
 - Resultado:
   - No issues found.
   - All tests passed.
+
+## B77 — Selección de unidad y carga de lecciones
+
+- Objetivo: permitir seleccionar una unidad y mostrar sus lecciones desde el backend.
+- Archivos modificados:
+  - lib/models/lesson.dart
+  - lib/services/api_service.dart
+  - lib/screens/home_screen.dart
+- Cambio realizado:
+  - Se creó el modelo Lesson.
+  - Se agregó getLessons(String unitId) en ApiService.
+  - HomeScreen permite seleccionar una unidad.
+  - Al seleccionar una unidad se muestran sus lecciones.
+- Validaciones realizadas:
+  - flutter analyze
+  - flutter test
+- Resultado:
+  - No issues found.
+  - All tests passed.

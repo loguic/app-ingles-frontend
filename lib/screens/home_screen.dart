@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../models/lesson.dart';
 import '../models/level.dart';
 import '../models/unit.dart';
 import '../services/api_service.dart';
@@ -17,10 +18,18 @@ class _HomeScreenState extends State<HomeScreen> {
   static final ApiService _apiService = ApiService();
 
   String _selectedLevelCode = 'A1';
+  String? _selectedUnitId;
 
   void _selectLevel(String levelCode) {
     setState(() {
       _selectedLevelCode = levelCode;
+      _selectedUnitId = null;
+    });
+  }
+
+  void _selectUnit(String unitId) {
+    setState(() {
+      _selectedUnitId = unitId;
     });
   }
 
@@ -132,6 +141,8 @@ class _HomeScreenState extends State<HomeScreen> {
                               child: ListTile(
                                 title: Text(unit.title),
                                 subtitle: Text(unit.id),
+                                selected: unit.id == _selectedUnitId,
+                                onTap: () => _selectUnit(unit.id),
                               ),
                             ),
                           )
@@ -139,6 +150,50 @@ class _HomeScreenState extends State<HomeScreen> {
                     );
                   },
                 ),
+                const SizedBox(height: 24),
+                if (_selectedUnitId != null) ...[
+                  Text(
+                    'Lecciones de $_selectedUnitId',
+                    style: const TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  FutureBuilder<List<Lesson>>(
+                    future: _apiService.getLessons(_selectedUnitId!),
+                    builder: (context, snapshot) {
+                      if (snapshot.connectionState == ConnectionState.waiting) {
+                        return const Text('Cargando lecciones...');
+                      }
+
+                      if (snapshot.hasError || !snapshot.hasData) {
+                        return const Text(
+                          'No se pudieron cargar las lecciones',
+                        );
+                      }
+
+                      final lessons = snapshot.data!;
+
+                      if (lessons.isEmpty) {
+                        return const Text('No hay lecciones para esta unidad');
+                      }
+
+                      return Column(
+                        children: lessons
+                            .map(
+                              (lesson) => Card(
+                                child: ListTile(
+                                  title: Text(lesson.title),
+                                  subtitle: Text(lesson.objective ?? lesson.id),
+                                ),
+                              ),
+                            )
+                            .toList(),
+                      );
+                    },
+                  ),
+                ],
               ],
             ),
           ),

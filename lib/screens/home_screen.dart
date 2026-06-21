@@ -4,6 +4,7 @@ import '../models/lesson.dart';
 import '../models/level.dart';
 import '../models/unit.dart';
 import '../services/api_service.dart';
+import '../widgets/info_card.dart';
 
 /// Initial home screen shown when the app starts.
 /// Pantalla inicial que se muestra al arrancar la aplicación.
@@ -101,15 +102,15 @@ class _HomeScreenState extends State<HomeScreen> {
       future: _apiService.checkHealth(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return _buildInfoCard(
+          return const InfoCard(
             title: 'Estado del backend',
-            child: const Text('Verificando backend...'),
+            child: Text('Verificando backend...'),
           );
         }
 
         final isBackendAvailable = snapshot.data ?? false;
 
-        return _buildInfoCard(
+        return InfoCard(
           title: 'Estado del backend',
           child: Text(
             isBackendAvailable ? 'Backend conectado' : 'Backend no disponible',
@@ -125,7 +126,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildLevelsSection() {
-    return _buildInfoCard(
+    return InfoCard(
       title: 'Nivel',
       child: FutureBuilder<List<Level>>(
         future: _apiService.getLevels(),
@@ -159,7 +160,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildUnitsSection() {
-    return _buildInfoCard(
+    return InfoCard(
       title: 'Unidades de $_selectedLevelCode',
       child: FutureBuilder<List<Unit>>(
         future: _apiService.getUnits(_selectedLevelCode),
@@ -200,7 +201,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildLessonsSection() {
-    return _buildInfoCard(
+    return InfoCard(
       title: 'Lecciones de $_selectedUnitId',
       child: FutureBuilder<List<Lesson>>(
         future: _apiService.getLessons(_selectedUnitId!),
@@ -245,32 +246,32 @@ class _HomeScreenState extends State<HomeScreen> {
       future: _apiService.getLesson(_selectedLessonId!),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return _buildInfoCard(
+          return const InfoCard(
             title: 'Detalle de lección',
-            child: const Text('Cargando detalle de lección...'),
+            child: Text('Cargando detalle de lección...'),
           );
         }
 
         if (snapshot.hasError || snapshot.data == null) {
-          return _buildInfoCard(
+          return const InfoCard(
             title: 'Detalle de lección',
-            child: const Text('No se pudo cargar la lección'),
+            child: Text('No se pudo cargar la lección'),
           );
         }
 
         final lesson = snapshot.data!;
 
-        return _buildInfoCard(
+        return InfoCard(
           title: lesson.title,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               if (lesson.objective != null)
-                _buildLessonSection(
+                LessonContentSection(
                   title: 'Objetivo',
                   child: Text(lesson.objective!),
                 ),
-              _buildLessonSection(
+              LessonContentSection(
                 title: 'Vocabulario',
                 child: Wrap(
                   spacing: 8,
@@ -280,7 +281,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       .toList(),
                 ),
               ),
-              _buildLessonSection(
+              LessonContentSection(
                 title: 'Gramática',
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -289,7 +290,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       .toList(),
                 ),
               ),
-              _buildLessonSection(
+              LessonContentSection(
                 title: 'Ejemplos',
                 child: Column(
                   children: lesson.examples
@@ -303,7 +304,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       .toList(),
                 ),
               ),
-              _buildLessonSection(
+              LessonContentSection(
                 title: 'Ejercicios',
                 child: Column(
                   children: lesson.exercises
@@ -322,40 +323,6 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         );
       },
-    );
-  }
-
-  Widget _buildInfoCard({required String title, required Widget child}) {
-    return Card(
-      elevation: 2,
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              title,
-              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 12),
-            child,
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildLessonSection({required String title, required Widget child}) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 18),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
-          const SizedBox(height: 8),
-          child,
-        ],
-      ),
     );
   }
 }

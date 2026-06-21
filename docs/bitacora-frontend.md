@@ -368,3 +368,21 @@
 - Resultado:
   - No issues found.
   - All tests passed.
+
+## B80 — Separación de widgets de HomeScreen
+
+- Objetivo: reducir el tamaño de HomeScreen separando componentes visuales reutilizables.
+- Archivos modificados:
+  - lib/screens/home_screen.dart
+  - lib/widgets/info_card.dart
+- Cambio realizado:
+  - Se creó InfoCard como tarjeta reutilizable.
+  - Se creó LessonContentSection para secciones internas del detalle de lección.
+  - HomeScreen ahora importa y usa estos widgets externos.
+  - Se eliminó lógica visual duplicada dentro de HomeScreen.
+- Validaciones realizadas:
+  - flutter analyze
+  - flutter test
+- Resultado:
+  - No issues found.
+  - All tests passed.

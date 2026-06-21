@@ -294,3 +294,21 @@
 - Resultado:
   - No issues found.
   - All tests passed.
+
+## B76 — Selección dinámica de nivel
+
+- Objetivo: permitir seleccionar un nivel y cargar sus unidades desde el backend.
+- Archivo modificado:
+  - lib/screens/home_screen.dart
+- Cambio realizado:
+  - HomeScreen pasó de StatelessWidget a StatefulWidget.
+  - Se agregó selectedLevelCode con valor inicial A1.
+  - Se reemplazaron chips simples por ChoiceChip.
+  - Las unidades se cargan usando getUnits(selectedLevelCode).
+  - Se agregó scroll con SingleChildScrollView.
+- Validaciones realizadas:
+  - flutter analyze
+  - flutter test
+- Resultado:
+  - No issues found.
+  - All tests passed.

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../models/lesson.dart';
+import '../services/api_service.dart';
 
 /// Interactive card for one lesson exercise.
 /// Tarjeta interactiva para un ejercicio de la lección.
@@ -17,32 +18,46 @@ class LessonExerciseCard extends StatefulWidget {
 }
 
 class _LessonExerciseCardState extends State<LessonExerciseCard> {
-  int? _selectedOptionIndex;
-  bool _hasCheckedAnswer = false;
+  static final ApiService _apiService = ApiService();
 
-  bool get _isCorrect =>
-      _selectedOptionIndex == widget.exercise.answerIndex;
+  int? _selectedOptionIndex;
+  bool? _isCorrect;
+  bool _isSubmitting = false;
 
   void _selectOption(int index) {
     setState(() {
       _selectedOptionIndex = index;
-      _hasCheckedAnswer = false;
+      _isCorrect = null;
     });
   }
 
-  void _checkAnswer() {
-    if (_selectedOptionIndex == null) {
+  Future<void> _checkAnswer() async {
+    final selectedOptionIndex = _selectedOptionIndex;
+
+    if (selectedOptionIndex == null || _isSubmitting) {
       return;
     }
 
     setState(() {
-      _hasCheckedAnswer = true;
+      _isSubmitting = true;
+      _isCorrect = null;
+    });
+
+    final result = await _apiService.submitExerciseAnswer(
+      exerciseId: widget.exercise.id,
+      selectedIndex: selectedOptionIndex,
+    );
+
+    setState(() {
+      _isSubmitting = false;
+      _isCorrect = result;
     });
   }
 
   @override
   Widget build(BuildContext context) {
     final selectedOptionIndex = _selectedOptionIndex;
+    final isCorrect = _isCorrect;
 
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
@@ -65,21 +80,22 @@ class _LessonExerciseCardState extends State<LessonExerciseCard> {
                           : Icons.radio_button_unchecked,
                     ),
                     title: Text(entry.value),
-                    onTap: () => _selectOption(entry.key),
+                    onTap: _isSubmitting ? null : () => _selectOption(entry.key),
                   ),
                 ),
             const SizedBox(height: 8),
             ElevatedButton(
-              onPressed: selectedOptionIndex == null ? null : _checkAnswer,
-              child: const Text('Comprobar'),
+              onPressed:
+                  selectedOptionIndex == null || _isSubmitting ? null : _checkAnswer,
+              child: Text(_isSubmitting ? 'Comprobando...' : 'Comprobar'),
             ),
-            if (_hasCheckedAnswer) ...[
+            if (isCorrect != null) ...[
               const SizedBox(height: 8),
               Text(
-                _isCorrect ? 'Respuesta correcta' : 'Respuesta incorrecta',
+                isCorrect ? 'Respuesta correcta' : 'Respuesta incorrecta',
                 style: TextStyle(
                   fontWeight: FontWeight.w600,
-                  color: _isCorrect ? Colors.green : Colors.red,
+                  color: isCorrect ? Colors.green : Colors.red,
                 ),
               ),
             ],

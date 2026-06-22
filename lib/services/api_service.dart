@@ -86,4 +86,27 @@ class ApiService {
 
     return Lesson.fromJson(data);
   }
+
+  /// Submits an exercise answer to the backend.
+  /// Envía una respuesta de ejercicio al backend.
+  Future<bool?> submitExerciseAnswer({
+    required String exerciseId,
+    required int selectedIndex,
+  }) async {
+    final uri = Uri.parse('$baseUrl/exercises/$exerciseId/submit');
+
+    final response = await http.post(
+      uri,
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({'selected_index': selectedIndex}),
+    );
+
+    if (response.statusCode != 200) {
+      return null;
+    }
+
+    final data = jsonDecode(response.body) as Map<String, dynamic>;
+
+    return data['correct'] as bool;
+  }
 }

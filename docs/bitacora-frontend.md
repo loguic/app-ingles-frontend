@@ -453,3 +453,14 @@
   - `flutter analyze` → No issues found.
   - `flutter test` → All tests passed.
 
+
+## B86 — Conectar ejercicios con backend
+
+- Se agregó `submitExerciseAnswer()` en `lib/services/api_service.dart`.
+- El método envía respuestas al endpoint `/exercises/{exercise_id}/submit`.
+- `LessonExerciseCard` ahora valida respuestas usando el backend.
+- Se mantiene estado de carga con el texto `Comprobando...`.
+- Validación ejecutada:
+  - `flutter analyze` → No issues found.
+  - `flutter test` → All tests passed.
+

@@ -431,3 +431,14 @@
   - `flutter analyze` → No issues found.
   - `flutter test` → All tests passed.
 
+
+## B84 — Separar detalle de lección en pantalla propia
+
+- Se creó `lib/screens/lesson_detail_screen.dart`.
+- `LessonDetailScreen` carga y muestra el detalle completo de una lección.
+- `HomeScreen` ahora navega hacia `LessonDetailScreen` al seleccionar una lección.
+- Se eliminó de `HomeScreen` la carga directa del detalle de lección.
+- Validación ejecutada:
+  - `flutter analyze` → No issues found.
+  - `flutter test` → All tests passed.
+

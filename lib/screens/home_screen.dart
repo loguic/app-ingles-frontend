@@ -1,12 +1,11 @@
 import 'package:flutter/material.dart';
 
-import '../models/lesson.dart';
 import '../services/api_service.dart';
 import '../widgets/info_card.dart';
-import '../widgets/lesson_detail_card.dart';
 import '../widgets/lesson_list_card.dart';
 import '../widgets/level_selector_card.dart';
 import '../widgets/unit_list_card.dart';
+import 'lesson_detail_screen.dart';
 
 /// Initial home screen shown when the app starts.
 /// Pantalla inicial que se muestra al arrancar la aplicación.
@@ -43,6 +42,12 @@ class _HomeScreenState extends State<HomeScreen> {
     setState(() {
       _selectedLessonId = lessonId;
     });
+
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => LessonDetailScreen(lessonId: lessonId),
+      ),
+    );
   }
 
   @override
@@ -81,10 +86,6 @@ class _HomeScreenState extends State<HomeScreen> {
                     selectedLessonId: _selectedLessonId,
                     onLessonSelected: _selectLesson,
                   ),
-                ],
-                if (_selectedLessonId != null) ...[
-                  const SizedBox(height: 16),
-                  _buildLessonDetailSection(),
                 ],
               ],
             ),
@@ -136,29 +137,6 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ),
         );
-      },
-    );
-  }
-
-  Widget _buildLessonDetailSection() {
-    return FutureBuilder<Lesson?>(
-      future: _apiService.getLesson(_selectedLessonId!),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const InfoCard(
-            title: 'Detalle de lección',
-            child: Text('Cargando detalle de lección...'),
-          );
-        }
-
-        if (snapshot.hasError || snapshot.data == null) {
-          return const InfoCard(
-            title: 'Detalle de lección',
-            child: Text('No se pudo cargar la lección'),
-          );
-        }
-
-        return LessonDetailCard(lesson: snapshot.data!);
       },
     );
   }

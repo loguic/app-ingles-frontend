@@ -477,3 +477,14 @@
   - `flutter analyze` → No issues found.
   - `flutter test` → All tests passed.
 
+
+## B88 — Leer progreso del usuario
+
+- Se verificó que el backend devuelve progreso con `GET /progress/demo-user`.
+- Se creó `lib/models/progress_record.dart`.
+- Se agregó `getProgress()` en `lib/services/api_service.dart`.
+- `ProgressRecord` representa los registros de progreso recibidos desde el backend.
+- Validación ejecutada:
+  - `flutter analyze` → No issues found.
+  - `flutter test` → All tests passed.
+

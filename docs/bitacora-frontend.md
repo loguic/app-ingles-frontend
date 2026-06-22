@@ -488,3 +488,15 @@
   - `flutter analyze` → No issues found.
   - `flutter test` → All tests passed.
 
+
+## B89 — Mostrar resumen básico de progreso
+
+- Se creó `lib/widgets/progress_summary_card.dart`.
+- `ProgressSummaryCard` lee el progreso de `demo-user` usando `getProgress()`.
+- La pantalla principal ahora muestra una tarjeta `Progreso`.
+- El resumen muestra ejercicios respondidos y respuestas correctas.
+- `HomeScreen` fue actualizado para insertar `ProgressSummaryCard` entre el estado del backend y el selector de niveles.
+- Validación ejecutada:
+  - `flutter analyze` → No issues found.
+  - `flutter test` → All tests passed.
+

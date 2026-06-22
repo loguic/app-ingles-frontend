@@ -4,6 +4,7 @@ import '../services/api_service.dart';
 import '../widgets/info_card.dart';
 import '../widgets/lesson_list_card.dart';
 import '../widgets/level_selector_card.dart';
+import '../widgets/progress_summary_card.dart';
 import '../widgets/unit_list_card.dart';
 import 'lesson_detail_screen.dart';
 
@@ -78,6 +79,8 @@ class _HomeScreenState extends State<HomeScreen> {
                 _buildHeader(),
                 const SizedBox(height: 16),
                 _buildBackendStatus(),
+                const SizedBox(height: 16),
+                const ProgressSummaryCard(),
                 const SizedBox(height: 16),
                 LevelSelectorCard(
                   selectedLevelCode: _selectedLevelCode,

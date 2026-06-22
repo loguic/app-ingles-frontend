@@ -500,3 +500,13 @@
   - `flutter analyze` → No issues found.
   - `flutter test` → All tests passed.
 
+
+## B90 — Actualizar progreso al volver de una lección
+
+- `HomeScreen` ahora espera el retorno desde `LessonDetailScreen`.
+- Se agregó `_progressRefreshCounter` para forzar la reconstrucción de `ProgressSummaryCard`.
+- La tarjeta de progreso se actualiza al volver desde una lección.
+- Validación ejecutada:
+  - `flutter analyze` → No issues found.
+  - `flutter test` → All tests passed.
+

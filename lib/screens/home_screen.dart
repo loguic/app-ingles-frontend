@@ -23,6 +23,7 @@ class _HomeScreenState extends State<HomeScreen> {
   String _selectedLevelCode = 'A1';
   String? _selectedUnitId;
   String? _selectedLessonId;
+  int _progressRefreshCounter = 0;
 
   void _selectLevel(String levelCode) {
     setState(() {
@@ -39,7 +40,7 @@ class _HomeScreenState extends State<HomeScreen> {
     });
   }
 
-  void _selectLesson(String lessonId) {
+  Future<void> _selectLesson(String lessonId) async {
     setState(() {
       _selectedLessonId = lessonId;
     });
@@ -50,7 +51,7 @@ class _HomeScreenState extends State<HomeScreen> {
       return;
     }
 
-    Navigator.of(context).push(
+    await Navigator.of(context).push(
       MaterialPageRoute(
         builder: (context) => LessonDetailScreen(
           lessonId: lessonId,
@@ -59,6 +60,10 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
       ),
     );
+
+    setState(() {
+      _progressRefreshCounter++;
+    });
   }
 
   @override
@@ -80,7 +85,9 @@ class _HomeScreenState extends State<HomeScreen> {
                 const SizedBox(height: 16),
                 _buildBackendStatus(),
                 const SizedBox(height: 16),
-                const ProgressSummaryCard(),
+                ProgressSummaryCard(
+                  key: ValueKey(_progressRefreshCounter),
+                ),
                 const SizedBox(height: 16),
                 LevelSelectorCard(
                   selectedLevelCode: _selectedLevelCode,

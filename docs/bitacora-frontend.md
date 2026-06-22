@@ -442,3 +442,14 @@
   - `flutter analyze` → No issues found.
   - `flutter test` → All tests passed.
 
+
+## B85 — Preparar ejercicios interactivos
+
+- Se creó `lib/widgets/lesson_exercise_card.dart`.
+- `LessonExerciseCard` permite seleccionar una opción y comprobar si la respuesta es correcta.
+- `LessonDetailCard` ahora muestra ejercicios mediante tarjetas interactivas.
+- La validación de respuesta es local usando `answerIndex`.
+- Validación ejecutada:
+  - `flutter analyze` → No issues found.
+  - `flutter test` → All tests passed.
+

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../models/lesson.dart';
 import 'info_card.dart';
+import 'lesson_exercise_card.dart';
 
 /// Shows the full content of a selected lesson.
 /// Muestra el contenido completo de una lección seleccionada.
@@ -60,14 +61,7 @@ class LessonDetailCard extends StatelessWidget {
             title: 'Ejercicios',
             child: Column(
               children: lesson.exercises
-                  .map(
-                    (exercise) => ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      leading: const Icon(Icons.quiz),
-                      title: Text(exercise.prompt),
-                      subtitle: Text(exercise.options.join(' / ')),
-                    ),
-                  )
+                  .map((exercise) => LessonExerciseCard(exercise: exercise))
                   .toList(),
             ),
           ),

@@ -109,4 +109,34 @@ class ApiService {
 
     return data['correct'] as bool;
   }
+
+  /// Saves the user's exercise progress in the backend.
+  /// Guarda el progreso del ejercicio del usuario en el backend.
+  Future<bool> saveProgress({
+    required String userId,
+    required String levelId,
+    required String unitId,
+    required String lessonId,
+    required String exerciseId,
+    required int selectedIndex,
+    required bool correct,
+  }) async {
+    final uri = Uri.parse('$baseUrl/progress');
+
+    final response = await http.post(
+      uri,
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({
+        'user_id': userId,
+        'level_id': levelId,
+        'unit_id': unitId,
+        'lesson_id': lessonId,
+        'exercise_id': exerciseId,
+        'selected_index': selectedIndex,
+        'correct': correct,
+      }),
+    );
+
+    return response.statusCode == 200;
+  }
 }

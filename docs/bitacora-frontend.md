@@ -464,3 +464,16 @@
   - `flutter analyze` → No issues found.
   - `flutter test` → All tests passed.
 
+
+## B87 — Registrar progreso del usuario
+
+- Se verificó el contrato real del endpoint `/progress`.
+- El backend requiere: `user_id`, `level_id`, `unit_id`, `lesson_id`, `exercise_id`, `selected_index` y `correct`.
+- Se agregó `saveProgress()` en `lib/services/api_service.dart`.
+- `LessonExerciseCard` ahora guarda progreso después de comprobar una respuesta.
+- Se usa temporalmente `demo-user` hasta implementar autenticación.
+- `LessonDetailCard`, `LessonDetailScreen` y `HomeScreen` pasan `levelId`, `unitId` y `lessonId`.
+- Validación ejecutada:
+  - `flutter analyze` → No issues found.
+  - `flutter test` → All tests passed.
+

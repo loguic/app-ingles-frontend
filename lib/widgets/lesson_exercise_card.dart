@@ -8,10 +8,16 @@ import '../services/api_service.dart';
 class LessonExerciseCard extends StatefulWidget {
   const LessonExerciseCard({
     required this.exercise,
+    required this.levelId,
+    required this.unitId,
+    required this.lessonId,
     super.key,
   });
 
   final LessonExercise exercise;
+  final String levelId;
+  final String unitId;
+  final String lessonId;
 
   @override
   State<LessonExerciseCard> createState() => _LessonExerciseCardState();
@@ -47,6 +53,18 @@ class _LessonExerciseCardState extends State<LessonExerciseCard> {
       exerciseId: widget.exercise.id,
       selectedIndex: selectedOptionIndex,
     );
+
+    if (result != null) {
+      await _apiService.saveProgress(
+        userId: 'demo-user',
+        levelId: widget.levelId,
+        unitId: widget.unitId,
+        lessonId: widget.lessonId,
+        exerciseId: widget.exercise.id,
+        selectedIndex: selectedOptionIndex,
+        correct: result,
+      );
+    }
 
     setState(() {
       _isSubmitting = false;

@@ -9,11 +9,15 @@ import '../widgets/lesson_detail_card.dart';
 /// Pantalla que carga y muestra el detalle completo de una lección.
 class LessonDetailScreen extends StatelessWidget {
   const LessonDetailScreen({
-    super.key,
     required this.lessonId,
+    required this.levelId,
+    required this.unitId,
+    super.key,
   });
 
   final String lessonId;
+  final String levelId;
+  final String unitId;
 
   static final ApiService _apiService = ApiService();
 
@@ -46,7 +50,11 @@ class LessonDetailScreen extends StatelessWidget {
                   );
                 }
 
-                return LessonDetailCard(lesson: snapshot.data!);
+                return LessonDetailCard(
+                  lesson: snapshot.data!,
+                  levelId: levelId,
+                  unitId: unitId,
+                );
               },
             ),
           ),

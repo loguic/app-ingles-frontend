@@ -43,9 +43,19 @@ class _HomeScreenState extends State<HomeScreen> {
       _selectedLessonId = lessonId;
     });
 
+    final selectedUnitId = _selectedUnitId;
+
+    if (selectedUnitId == null) {
+      return;
+    }
+
     Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (context) => LessonDetailScreen(lessonId: lessonId),
+        builder: (context) => LessonDetailScreen(
+          lessonId: lessonId,
+          levelId: _selectedLevelCode,
+          unitId: selectedUnitId,
+        ),
       ),
     );
   }

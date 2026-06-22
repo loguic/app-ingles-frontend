@@ -9,10 +9,14 @@ import 'lesson_exercise_card.dart';
 class LessonDetailCard extends StatelessWidget {
   const LessonDetailCard({
     required this.lesson,
+    required this.levelId,
+    required this.unitId,
     super.key,
   });
 
   final Lesson lesson;
+  final String levelId;
+  final String unitId;
 
   @override
   Widget build(BuildContext context) {
@@ -61,7 +65,14 @@ class LessonDetailCard extends StatelessWidget {
             title: 'Ejercicios',
             child: Column(
               children: lesson.exercises
-                  .map((exercise) => LessonExerciseCard(exercise: exercise))
+                  .map(
+                    (exercise) => LessonExerciseCard(
+                      exercise: exercise,
+                      levelId: levelId,
+                      unitId: unitId,
+                      lessonId: lesson.id,
+                    ),
+                  )
                   .toList(),
             ),
           ),

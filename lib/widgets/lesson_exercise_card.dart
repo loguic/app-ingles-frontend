@@ -29,11 +29,17 @@ class _LessonExerciseCardState extends State<LessonExerciseCard> {
   int? _selectedOptionIndex;
   bool? _isCorrect;
   bool _isSubmitting = false;
+  String? _feedbackMessage;
+
+  String get _correctAnswer {
+    return widget.exercise.options[widget.exercise.answerIndex];
+  }
 
   void _selectOption(int index) {
     setState(() {
       _selectedOptionIndex = index;
       _isCorrect = null;
+      _feedbackMessage = null;
     });
   }
 
@@ -47,6 +53,7 @@ class _LessonExerciseCardState extends State<LessonExerciseCard> {
     setState(() {
       _isSubmitting = true;
       _isCorrect = null;
+      _feedbackMessage = null;
     });
 
     final result = await _apiService.submitExerciseAnswer(
@@ -69,13 +76,28 @@ class _LessonExerciseCardState extends State<LessonExerciseCard> {
     setState(() {
       _isSubmitting = false;
       _isCorrect = result;
+      _feedbackMessage = _buildFeedbackMessage(result);
     });
+  }
+
+  String _buildFeedbackMessage(bool? isCorrect) {
+    if (isCorrect == null) {
+      return 'No se pudo comprobar la respuesta. Inténtalo nuevamente.';
+    }
+
+    if (isCorrect) {
+      return 'Muy bien. Esta respuesta encaja con el objetivo del ejercicio.';
+    }
+
+    return 'Revisa la opción correcta: "$_correctAnswer". '
+        'Compárala con tu respuesta y observa cuándo se usa.';
   }
 
   @override
   Widget build(BuildContext context) {
     final selectedOptionIndex = _selectedOptionIndex;
     final isCorrect = _isCorrect;
+    final feedbackMessage = _feedbackMessage;
 
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
@@ -98,24 +120,30 @@ class _LessonExerciseCardState extends State<LessonExerciseCard> {
                           : Icons.radio_button_unchecked,
                     ),
                     title: Text(entry.value),
-                    onTap: _isSubmitting ? null : () => _selectOption(entry.key),
+                    onTap:
+                        _isSubmitting ? null : () => _selectOption(entry.key),
                   ),
                 ),
             const SizedBox(height: 8),
             ElevatedButton(
-              onPressed:
-                  selectedOptionIndex == null || _isSubmitting ? null : _checkAnswer,
+              onPressed: selectedOptionIndex == null || _isSubmitting
+                  ? null
+                  : _checkAnswer,
               child: Text(_isSubmitting ? 'Comprobando...' : 'Comprobar'),
             ),
-            if (isCorrect != null) ...[
+            if (isCorrect != null || feedbackMessage != null) ...[
               const SizedBox(height: 8),
               Text(
-                isCorrect ? 'Respuesta correcta' : 'Respuesta incorrecta',
+                isCorrect == true
+                    ? 'Respuesta correcta'
+                    : 'Respuesta incorrecta',
                 style: TextStyle(
                   fontWeight: FontWeight.w600,
-                  color: isCorrect ? Colors.green : Colors.red,
+                  color: isCorrect == true ? Colors.green : Colors.red,
                 ),
               ),
+              const SizedBox(height: 4),
+              Text(feedbackMessage ?? ''),
             ],
           ],
         ),

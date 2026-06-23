@@ -510,3 +510,14 @@
   - `flutter analyze` → No issues found.
   - `flutter test` → All tests passed.
 
+
+## B91 — Mostrar retroalimentación pedagógica después de responder
+
+- Se agregó retroalimentación pedagógica local en `LessonExerciseCard`.
+- Después de comprobar una respuesta, la app muestra un mensaje breve de orientación.
+- Si la respuesta es incorrecta, se muestra la respuesta correcta para comparación.
+- Este bloque inicia la transición desde ejercicios simples hacia una dinámica más pedagógica y conversacional.
+- Validación ejecutada:
+  - `flutter analyze` → No issues found.
+  - `flutter test` → All tests passed.
+

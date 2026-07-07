@@ -521,3 +521,15 @@
   - `flutter analyze` → No issues found.
   - `flutter test` → All tests passed.
 
+
+## B92 — Adoptar sistema profesional de ingeniería
+
+- Se creó `docs/engineering-system-v2.md`.
+- Se definió un método de desarrollo basado en capacidades verticales y valor para el usuario.
+- Se incorporaron criterios de aceptación y una Definition of Done profesional.
+- Se establecieron estrategias progresivas de pruebas, arquitectura evolutiva, revisión de código, CI y DevSecOps.
+- Se priorizó conversación fluida, comprensión auditiva, práctica oral y retroalimentación pedagógica.
+- Se fijó como objetivo una versión innovadora en tres meses mediante alcance controlado y entregas frecuentes.
+- Validación documental:
+  - `git diff --check` → Sin errores.
+

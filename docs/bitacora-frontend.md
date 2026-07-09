@@ -533,3 +533,55 @@
 - Validación documental:
   - `git diff --check` → Sin errores.
 
+## B93 — Primera capacidad vertical conversacional: escuchar una frase
+
+- Se incorporó `audioplayers 6.7.1` para reproducir recursos de audio locales.
+- Se registró `assets/audio/` en `pubspec.yaml`.
+- Se generaron dos audios WAV provisionales para `Hello, I am John.`:
+  - `en-US`: `assets/audio/a1_u1_l1_hello_us.wav`;
+  - `en-GB`: `assets/audio/a1_u1_l1_hello_uk.wav`.
+- Los audios utilizan temporalmente voces masculinas de eSpeak NG:
+  - `en-us` para inglés estadounidense;
+  - `en-gb` para inglés británico;
+  - velocidad `145`.
+- eSpeak NG queda limitado a prototipo local y respaldo offline.
+- Azure AI Speech se evaluará posteriormente para voces neuronales y evaluación de pronunciación.
+- Se añadió al contrato del backend la estructura escalable `pronunciations`.
+- Cada pronunciación contiene:
+  - `locale`;
+  - transcripción `ipa`;
+  - `audio_asset`.
+- Las variantes actuales son:
+  - `en-US` — inglés estadounidense;
+  - `en-GB` — inglés británico.
+- Se creó el modelo Flutter `LessonPronunciation`.
+- `LessonExample` ahora admite una lista de pronunciaciones regionales.
+- Se creó `LessonPronunciationControls` para mostrar:
+  - nombre de la variante;
+  - transcripción IPA;
+  - botón y estado de reproducción;
+  - mensaje de error.
+- `LessonDetailCard` integra los controles debajo de cada frase de ejemplo.
+- `ApiService` utiliza `http://127.0.0.1:8001/api/v1`.
+- Decisión de entorno local:
+  - CNAPP-Lite conserva el puerto `8000`;
+  - App Inglés utiliza el puerto `8001`;
+  - los entornos virtuales aíslan dependencias, pero no puertos.
+- Se completó la cadena de compilación Flutter Linux y el soporte GStreamer requerido por `audioplayers_linux`.
+- Validación manual en Linux Desktop:
+  - la aplicación compiló y abrió correctamente;
+  - se mostraron las variantes `en-US` y `en-GB`;
+  - ambas mostraron su IPA;
+  - ambos audios se reprodujeron sin errores.
+- Decisión de alcance:
+  - B93 se cierra por funcionamiento de la capacidad;
+  - el pulido visual o `UI polish` queda para un bloque posterior.
+- Validaciones finales:
+  - `flutter analyze` → No issues found;
+  - `flutter test` → All tests passed;
+  - `pytest -q` en backend → 17 pruebas superadas en 0.64 segundos;
+  - `git diff --check` en frontend y backend → sin errores;
+  - prueba visual y auditiva en Linux Desktop → correcta.
+- Resultado:
+  - la primera capacidad vertical de escucha quedó implementada y validada;
+  - la voz neuronal y el pulido visual quedan para bloques posteriores.

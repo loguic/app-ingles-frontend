@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../models/lesson.dart';
 import 'info_card.dart';
 import 'lesson_exercise_card.dart';
+import 'lesson_pronunciation_controls.dart';
 
 /// Shows the full content of a selected lesson.
 /// Muestra el contenido completo de una lección seleccionada.
@@ -52,10 +53,21 @@ class LessonDetailCard extends StatelessWidget {
             child: Column(
               children: lesson.examples
                   .map(
-                    (example) => ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      title: Text(example.en),
-                      subtitle: Text(example.es),
+                    (example) => Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        ListTile(
+                          contentPadding: EdgeInsets.zero,
+                          title: Text(example.en),
+                          subtitle: Text(example.es),
+                        ),
+
+                        // Shows IPA and audio controls for available accents.
+                        // Muestra IPA y controles de audio para los acentos disponibles.
+                        LessonPronunciationControls(
+                          pronunciations: example.pronunciations,
+                        ),
+                      ],
                     ),
                   )
                   .toList(),

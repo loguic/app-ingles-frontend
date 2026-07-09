@@ -1,18 +1,59 @@
+/// Represents one regional pronunciation of an English sentence.
+/// Representa una pronunciación regional de una frase en inglés.
+class LessonPronunciation {
+  const LessonPronunciation({
+    required this.locale,
+    required this.ipa,
+    required this.audioAsset,
+  });
+
+  /// Regional English locale, such as en-US or en-GB.
+  /// Variante regional de inglés, como en-US o en-GB.
+  final String locale;
+
+  /// International Phonetic Alphabet transcription.
+  /// Transcripción en el Alfabeto Fonético Internacional.
+  final String ipa;
+
+  /// Local audio asset matching this pronunciation variant.
+  /// Recurso de audio local correspondiente a esta variante.
+  final String audioAsset;
+
+  factory LessonPronunciation.fromJson(Map<String, dynamic> json) {
+    return LessonPronunciation(
+      locale: json['locale'] as String,
+      ipa: json['ipa'] as String,
+      audioAsset: json['audio_asset'] as String,
+    );
+  }
+}
+
 /// Represents an example sentence inside a lesson.
 /// Representa una frase de ejemplo dentro de una lección.
 class LessonExample {
   const LessonExample({
     required this.en,
     required this.es,
+    this.pronunciations = const [],
   });
 
   final String en;
   final String es;
 
+  /// Available regional pronunciations for this example sentence.
+  /// Pronunciaciones regionales disponibles para esta frase de ejemplo.
+  final List<LessonPronunciation> pronunciations;
+
   factory LessonExample.fromJson(Map<String, dynamic> json) {
+    final pronunciations = json['pronunciations'] as List<dynamic>? ?? [];
+
     return LessonExample(
       en: json['en'] as String,
       es: json['es'] as String,
+      pronunciations: pronunciations
+          .cast<Map<String, dynamic>>()
+          .map(LessonPronunciation.fromJson)
+          .toList(),
     );
   }
 }

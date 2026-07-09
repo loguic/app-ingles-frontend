@@ -10,7 +10,7 @@ import 'package:http/http.dart' as http;
 class ApiService {
   /// Base URL of the FastAPI backend running locally in Ubuntu VMware.
   /// URL base del backend FastAPI ejecutándose localmente en Ubuntu VMware.
-  static const String baseUrl = 'http://127.0.0.1:8000/api/v1';
+  static const String baseUrl = 'http://127.0.0.1:8001/api/v1';
 
   /// Checks if the backend health endpoint is available.
   /// Verifica si el endpoint de salud del backend está disponible.

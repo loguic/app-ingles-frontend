@@ -59,7 +59,7 @@
   - lib/services/api_service.dart
 - Cambio realizado:
   - Se creó la carpeta lib/services.
-  - Se creó ApiService con baseUrl apuntando a http://192.168.1.33:8000/api/v1.
+  - Se creó ApiService con baseUrl apuntando a <http://192.168.1.33:8000/api/v1>.
   - Se implementó el método checkHealth().
   - Se usó package:http/http.dart para realizar la petición HTTP.
   - Se usó jsonDecode para interpretar la respuesta del backend.
@@ -116,70 +116,70 @@
   - No issues found.
   - All tests passed.
 
-
 ## B70 — Migración del backend a Ubuntu VMware
 
-* Objetivo: migrar el backend desde WSL2 hacia Ubuntu VMware para unificar el entorno de desarrollo.
-* Ruta anterior:
+- Objetivo: migrar el backend desde WSL2 hacia Ubuntu VMware para unificar el entorno de desarrollo.
+- Ruta anterior:
 
-  * WSL2: ~/proyectos/app-ingles-backend
-* Ruta nueva:
+  - WSL2: ~/proyectos/app-ingles-backend
+- Ruta nueva:
 
-  * Ubuntu VMware: ~/projects/app_ingles_backend/app-ingles-backend
-* Cambio realizado:
+  - Ubuntu VMware: ~/projects/app_ingles_backend/app-ingles-backend
+- Cambio realizado:
 
-  * Se clono el repositorio backend desde GitHub en Ubuntu VMware.
-  * Se creo un entorno virtual local .venv.
-  * Se instalaron las dependencias desde requirements.txt.
-  * Se instalo PostgreSQL en Ubuntu VMware.
-  * Se creo la base de datos local app_ingles_db.
-  * Se creo el usuario PostgreSQL appIngles.
-  * Se creo el archivo .env local con DATABASE_URL.
-  * Se ejecutó el script app.db.create_tables para crear la tabla user_progress.
-* Problema que resuelve:
+  - Se clono el repositorio backend desde GitHub en Ubuntu VMware.
+  - Se creo un entorno virtual local .venv.
+  - Se instalaron las dependencias desde requirements.txt.
+  - Se instalo PostgreSQL en Ubuntu VMware.
+  - Se creo la base de datos local app_ingles_db.
+  - Se creo el usuario PostgreSQL appIngles.
+  - Se creo el archivo .env local con DATABASE_URL.
+  - Se ejecutó el script app.db.create_tables para crear la tabla user_progress.
+- Problema que resuelve:
 
-  * Elimina la dependencia de WSL2, Windows portproxy y comunicacion cruzada entre Windows y Ubuntu.
-  * Permite trabajar backend, frontend, PostgreSQL, VS Code, Flutter y Git/GitHub desde Ubuntu VMware local.
-* Validaciones realizadas:
+  - Elimina la dependencia de WSL2, Windows portproxy y comunicacion cruzada entre Windows y Ubuntu.
+  - Permite trabajar backend, frontend, PostgreSQL, VS Code, Flutter y Git/GitHub desde Ubuntu VMware local.
+- Validaciones realizadas:
 
-  * pytest
-  * uvicorn app.main:app
-  * curl http://127.0.0.1:8000/api/v1/health
-* Resultado:
+  - pytest
+  - uvicorn app.main:app
+  - curl <http://127.0.0.1:8000/api/v1/health>
+- Resultado:
 
-  * 17 tests passed.
-  * Backend levantado en http://0.0.0.0:8000.
-  * Endpoint /api/v1/health respondio {"status":"ok"}.
-* Decision tecnica:
+  - 17 tests passed.
+  - Backend levantado en <http://0.0.0.0:8000>.
+  - Endpoint /api/v1/health respondio {"status":"ok"}.
+- Decision tecnica:
 
-  * Ubuntu VMware local queda como entorno principal del proyecto app-ingles.
-  * WSL2 deja de ser el entorno principal para este proyecto.
+  - Ubuntu VMware local queda como entorno principal del proyecto app-ingles.
+  - WSL2 deja de ser el entorno principal para este proyecto.
+
 ## B70 — Actualización del frontend para backend local
 
-* Objetivo: conectar el frontend Flutter con el backend migrado a Ubuntu VMware.
-* Archivo modificado:
+- Objetivo: conectar el frontend Flutter con el backend migrado a Ubuntu VMware.
+- Archivo modificado:
 
-  * lib/services/api_service.dart
-* Cambio realizado:
+  - lib/services/api_service.dart
+- Cambio realizado:
 
-  * Se cambio la URL base del ApiService.
-  * Antes apuntaba a http://192.168.1.33:8000/api/v1.
-  * Ahora apunta a http://127.0.0.1:8000/api/v1.
-* Problema que resuelve:
+  - Se cambio la URL base del ApiService.
+  - Antes apuntaba a <http://192.168.1.33:8000/api/v1>.
+  - Ahora apunta a <http://127.0.0.1:8000/api/v1>.
+- Problema que resuelve:
 
-  * Elimina la dependencia de Windows, WSL2 y portproxy para conectar frontend y backend.
-  * Permite que Flutter consuma el backend FastAPI ejecutado localmente en Ubuntu VMware.
-* Validaciones realizadas:
+  - Elimina la dependencia de Windows, WSL2 y portproxy para conectar frontend y backend.
+  - Permite que Flutter consuma el backend FastAPI ejecutado localmente en Ubuntu VMware.
+- Validaciones realizadas:
 
-  * flutter analyze
-  * flutter test
-* Resultado:
+  - flutter analyze
+  - flutter test
+- Resultado:
 
-  * No issues found.
-  * All tests passed.
-* Decision tecnica:
+  - No issues found.
+  - All tests passed.
+- Decision tecnica:
 
-  * Ubuntu VMware local queda como entorno principal para frontend y backend.
+  - Ubuntu VMware local queda como entorno principal para frontend y backend.
 
 ## B70 — Migración del backend a Ubuntu VMware
 
@@ -205,10 +205,11 @@
   - WSL2 deja de ser el entorno principal para app-ingles.
 
 ## B71 — Verificación completa del sistema en Ubuntu
+
 - Objetivo: validar que backend, frontend, PostgreSQL y Git funcionan correctamente desde Ubuntu VMware local.
 - Validaciones realizadas:
   - Backend health:
-    - curl http://127.0.0.1:8000/api/v1/health
+    - curl <http://127.0.0.1:8000/api/v1/health>
   - Frontend:
     - flutter analyze
     - flutter test
@@ -225,6 +226,7 @@
   - Git limpio en backend y frontend.
 - Decision tecnica:
   - Se confirma Ubuntu VMware local como entorno principal estable para app-ingles.
+
 ## B72 — Mostrar niveles desde el backend
 
 - Objetivo: mostrar los niveles A1-C2 en la pantalla principal.
@@ -422,6 +424,7 @@
 - Resultado:
   - No issues found.
   - All tests passed.
+
 ## B83 — Separar selector de niveles en widget propio
 
 - Se creó `lib/widgets/level_selector_card.dart`.
@@ -430,7 +433,6 @@
 - Validación ejecutada:
   - `flutter analyze` → No issues found.
   - `flutter test` → All tests passed.
-
 
 ## B84 — Separar detalle de lección en pantalla propia
 
@@ -442,7 +444,6 @@
   - `flutter analyze` → No issues found.
   - `flutter test` → All tests passed.
 
-
 ## B85 — Preparar ejercicios interactivos
 
 - Se creó `lib/widgets/lesson_exercise_card.dart`.
@@ -453,7 +454,6 @@
   - `flutter analyze` → No issues found.
   - `flutter test` → All tests passed.
 
-
 ## B86 — Conectar ejercicios con backend
 
 - Se agregó `submitExerciseAnswer()` en `lib/services/api_service.dart`.
@@ -463,7 +463,6 @@
 - Validación ejecutada:
   - `flutter analyze` → No issues found.
   - `flutter test` → All tests passed.
-
 
 ## B87 — Registrar progreso del usuario
 
@@ -477,7 +476,6 @@
   - `flutter analyze` → No issues found.
   - `flutter test` → All tests passed.
 
-
 ## B88 — Leer progreso del usuario
 
 - Se verificó que el backend devuelve progreso con `GET /progress/demo-user`.
@@ -487,7 +485,6 @@
 - Validación ejecutada:
   - `flutter analyze` → No issues found.
   - `flutter test` → All tests passed.
-
 
 ## B89 — Mostrar resumen básico de progreso
 
@@ -500,7 +497,6 @@
   - `flutter analyze` → No issues found.
   - `flutter test` → All tests passed.
 
-
 ## B90 — Actualizar progreso al volver de una lección
 
 - `HomeScreen` ahora espera el retorno desde `LessonDetailScreen`.
@@ -509,7 +505,6 @@
 - Validación ejecutada:
   - `flutter analyze` → No issues found.
   - `flutter test` → All tests passed.
-
 
 ## B91 — Mostrar retroalimentación pedagógica después de responder
 
@@ -520,7 +515,6 @@
 - Validación ejecutada:
   - `flutter analyze` → No issues found.
   - `flutter test` → All tests passed.
-
 
 ## B92 — Adoptar sistema profesional de ingeniería
 
@@ -585,3 +579,160 @@
 - Resultado:
   - la primera capacidad vertical de escucha quedó implementada y validada;
   - la voz neuronal y el pulido visual quedan para bloques posteriores.
+
+## B94 — Escuchar, grabar y comparar pronunciación
+
+### Capacidad vertical
+
+El estudiante podrá escuchar una pronunciación de referencia, grabar su propia repetición y comparar ambos audios desde la misma lección.
+
+La grabación será local y temporal. No se enviará al backend ni recibirá evaluación automática en este bloque.
+
+### Criterios de aceptación
+
+1. Los controles de pronunciación de B93 continúan funcionando para `en-US` y `en-GB`.
+2. La interfaz permite iniciar una grabación desde el ejemplo activo.
+3. Durante la grabación se muestra claramente el estado `Grabando...`.
+4. El usuario puede detener la grabación manualmente.
+5. Después de detenerla, puede reproducir su propia voz.
+6. Puede volver a grabar y reemplazar la grabación anterior.
+7. Puede eliminar la grabación temporal.
+8. El audio de referencia y la grabación del usuario no pueden reproducirse simultáneamente.
+9. Los errores de permisos, micrófono o reproducción se muestran de forma comprensible y no bloquean la lección.
+10. La grabación no se guarda en el backend ni persiste al cerrar la pantalla.
+11. La lógica de grabación y reproducción queda separada del widget visual cuando sea necesario para mantener el código testeable.
+12. Las pruebas cubren los estados principales: inicial, grabando, grabación disponible, reproducción y error.
+13. `flutter analyze` finaliza sin incidencias.
+14. `flutter test` finaliza correctamente.
+15. Se realizan las revisiones de seguridad y código exigidas por Engineering System v2.
+16. La capacidad y sus decisiones quedan documentadas antes de cerrar B94.
+17. El bloque termina con commit, push y Git limpio y sincronizado.
+
+### Fuera del alcance de B94 — previsto para bloques posteriores
+
+- Reconocimiento automático de palabras.
+- Puntuación de pronunciación.
+- Comparación fonética con IPA.
+- Envío o almacenamiento de audio en el backend.
+- Historial de grabaciones.
+- Conversaciones completas con IA.
+
+### Implementación realizada
+
+- Se añadió `record 6.2.1` para la captura local de audio.
+- Se declaró `path_provider 2.1.6` como dependencia directa para administrar archivos temporales.
+- En Ubuntu se instalaron:
+  - `pulseaudio-utils`, que proporciona `parecord` y `pactl`;
+  - `ffmpeg`, utilizado por `record_linux`.
+- Se confirmó que `record_linux 1.3.1` admite:
+  - `AudioEncoder.wav`;
+  - codificación PCM de 16 bits `pcm_s16le`;
+  - grabación mono mediante `numChannels: 1`.
+- Se creó `PronunciationAudioController` como contrato testeable para las operaciones de audio.
+- Se creó `PronunciationAudioService` para coordinar:
+  - reproducción de audios de referencia;
+  - grabación WAV temporal;
+  - reproducción de la voz del estudiante;
+  - exclusión entre reproducción y grabación;
+  - eliminación manual de grabaciones;
+  - limpieza automática al cerrar la lección.
+- El servicio publica los identificadores de reproducción y grabación activos para sincronizar todos los ejemplos de una lección.
+- `LessonDetailScreen` se convirtió en `StatefulWidget`.
+- La pantalla crea un único `PronunciationAudioService` por lección y lo libera mediante `dispose()`.
+- `LessonDetailCard` comparte el servicio con todos los ejemplos.
+- Cada ejemplo utiliza un identificador local con el formato:
+  - `<lessonId>:example:<índice>`.
+- `LessonPronunciationControls` permite:
+  - escuchar las variantes `en-US` y `en-GB`;
+  - iniciar una grabación;
+  - mostrar el estado `Grabando...`;
+  - detener la grabación;
+  - reproducir la voz del estudiante;
+  - volver a grabar;
+  - eliminar la grabación temporal.
+- Una nueva grabación reemplaza el archivo temporal anterior del mismo ejemplo.
+- Los audios de referencia, la voz del estudiante y el micrófono no pueden utilizarse simultáneamente.
+- Los errores de permiso, micrófono, reproducción y eliminación se muestran sin bloquear la lección.
+- Las grabaciones no se envían al backend.
+- Los archivos WAV se conservan únicamente mientras la pantalla de la lección permanece abierta.
+- Al salir de la lección, los archivos `pronunciation_*.wav` se eliminan automáticamente.
+- Los archivos de registro de plugins de Linux, macOS y Windows fueron actualizados automáticamente por Flutter.
+
+### Pruebas automatizadas
+
+- Se creó `test/lesson_pronunciation_controls_test.dart`.
+- Se añadió `FakePronunciationAudioController` para probar la interfaz sin utilizar plugins nativos.
+- Las pruebas cubren:
+  - estado inicial;
+  - estado de grabación;
+  - grabación disponible;
+  - reproducción de la voz;
+  - permiso de micrófono denegado;
+  - regrabación y eliminación de la voz.
+- Resultado de las pruebas específicas:
+  - `flutter test test/lesson_pronunciation_controls_test.dart` → 6 pruebas superadas.
+- Resultado de la suite completa:
+  - `flutter test` → 7 pruebas superadas.
+- Resultado del análisis completo:
+  - `flutter analyze` → `No issues found`.
+- Integridad del diff:
+  - `git diff --check` → sin salida y sin errores.
+
+### Validación funcional en Linux Desktop
+
+- El backend respondió correctamente en:
+  - `http://127.0.0.1:8001/api/v1/health`.
+- La aplicación compiló y abrió correctamente con `flutter run -d linux`.
+- Se verificó visualmente la presencia de:
+  - `Practica tu pronunciación`;
+  - `Grabar mi voz`.
+- Se validó el acceso real al micrófono.
+- Se validaron los estados:
+  - `Grabando...`;
+  - `Detener grabación`;
+  - `Grabación disponible`;
+  - `Reproducir mi voz`;
+  - `Volver a grabar`;
+  - `Eliminar`.
+- La voz grabada se reprodujo correctamente.
+- La segunda grabación reemplazó a la primera.
+- La eliminación manual devolvió la interfaz al estado inicial.
+- Los audios de referencia `en-US` y `en-GB` continuaron funcionando.
+- Se comprobó la creación real de un archivo WAV en `/tmp`.
+- Se comprobó que el WAV desaparece automáticamente al salir de la lección.
+
+### Revisión de seguridad
+
+- No se almacena voz en el backend.
+- No se transmite audio por red.
+- La grabación requiere permiso del micrófono.
+- Durante la revisión se detectó que el primer WAV directo en `/tmp` tenía permisos `664`, por lo que esa implementación fue descartada.
+- También se detectó que el primer subdirectorio temporal privado se creaba inicialmente con permisos `775`.
+- La implementación final crea un subdirectorio exclusivo con permisos `700`.
+- Cada archivo WAV se restringe a permisos `600`.
+- Se verificaron los permisos reales:
+  - directorio: `700 drwx------`;
+  - archivo: `600 -rw-------`.
+- El usuario puede eliminar manualmente su grabación.
+- Al salir de la lección se eliminan automáticamente:
+  - los archivos WAV restantes;
+  - el subdirectorio temporal privado.
+- Se verificó que no quedan rutas `/tmp/app_ingles_pronunciation_*` después de cerrar la pantalla.
+- `path_provider` fue retirado como dependencia directa porque dejó de utilizarse.
+- La persistencia y el historial de voz permanecen fuera del alcance de B94 y requerirán consentimiento, retención y controles de privacidad.
+
+### Cierre técnico previo a Git
+
+- Revisión completa del código realizada.
+- Revisión de seguridad completada.
+- `flutter analyze` → `No issues found`.
+- `flutter test` → 7 pruebas superadas.
+- `git diff --check` → sin salida y sin errores.
+- Dependencias revisadas:
+  - `record: ^6.2.1` permanece como dependencia directa;
+  - `path_provider` fue retirado como dependencia directa.
+
+### Pendiente para cerrar B94
+
+- Realizar commit y push.
+- Confirmar Git limpio y sincronizado.

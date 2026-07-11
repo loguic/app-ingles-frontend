@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../models/lesson.dart';
+import '../services/pronunciation_audio_service.dart';
 import 'info_card.dart';
 import 'lesson_exercise_card.dart';
 import 'lesson_pronunciation_controls.dart';
@@ -12,12 +13,17 @@ class LessonDetailCard extends StatelessWidget {
     required this.lesson,
     required this.levelId,
     required this.unitId,
+    required this.pronunciationAudioService,
     super.key,
   });
 
   final Lesson lesson;
   final String levelId;
   final String unitId;
+
+  /// Shared audio service owned by the lesson screen.
+  /// Servicio de audio compartido y administrado por la pantalla.
+  final PronunciationAudioService pronunciationAudioService;
 
   @override
   Widget build(BuildContext context) {
@@ -51,26 +57,29 @@ class LessonDetailCard extends StatelessWidget {
           LessonContentSection(
             title: 'Ejemplos',
             child: Column(
-              children: lesson.examples
-                  .map(
-                    (example) => Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        ListTile(
-                          contentPadding: EdgeInsets.zero,
-                          title: Text(example.en),
-                          subtitle: Text(example.es),
-                        ),
+              children: lesson.examples.asMap().entries.map((entry) {
+                final exampleIndex = entry.key;
+                final example = entry.value;
 
-                        // Shows IPA and audio controls for available accents.
-                        // Muestra IPA y controles de audio para los acentos disponibles.
-                        LessonPronunciationControls(
-                          pronunciations: example.pronunciations,
-                        ),
-                      ],
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      title: Text(example.en),
+                      subtitle: Text(example.es),
                     ),
-                  )
-                  .toList(),
+
+                    // Shares one audio coordinator across the lesson.
+                    // Comparte un coordinador de audio en toda la lección.
+                    LessonPronunciationControls(
+                      exampleId: '${lesson.id}:example:$exampleIndex',
+                      pronunciations: example.pronunciations,
+                      audioService: pronunciationAudioService,
+                    ),
+                  ],
+                );
+              }).toList(),
             ),
           ),
           LessonContentSection(

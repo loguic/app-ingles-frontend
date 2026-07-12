@@ -732,7 +732,91 @@ La grabación será local y temporal. No se enviará al backend ni recibirá eva
   - `record: ^6.2.1` permanece como dependencia directa;
   - `path_provider` fue retirado como dependencia directa.
 
-### Pendiente para cerrar B94
+### Cierre de B94
+
+- Commit: `9705ba4`.
+- Mensaje: `B94 añadir grabación y comparación de pronunciación`.
+- Push realizado a `origin/master`.
+- Git quedó limpio y sincronizado.
+
+## B95 — Repetición guiada de una frase
+
+### Capacidad vertical
+
+El estudiante puede practicar una frase mediante un recorrido guiado:
+
+`Escuchar → Grabar → Escuchar mi voz → Repetir práctica`
+
+La capacidad reutiliza la reproducción y grabación local desarrolladas en B93 y B94, pero organiza las acciones mediante pasos pedagógicos visibles.
+
+### Implementación realizada
+
+- Se añadió el estado interno `_GuidedPracticeStep` con las etapas:
+  - `listen`;
+  - `record`;
+  - `review`;
+  - `repeat`.
+- La primera pronunciación disponible queda seleccionada inicialmente.
+- El estudiante puede seleccionar entre las variantes `en-US` y `en-GB`.
+- La interfaz muestra:
+  - la variante activa;
+  - el paso actual;
+  - la instrucción pedagógica correspondiente.
+- Cuando termina realmente el audio de referencia, la guía avanza al paso de grabación.
+- Cuando se crea correctamente el WAV, la guía avanza al paso de revisión.
+- Cuando termina la reproducción de la voz del estudiante, la práctica queda completada.
+- Se añadió el botón `Repetir práctica`.
+- Al reiniciar:
+  - se conserva la variante seleccionada;
+  - se libera primero la fuente del reproductor;
+  - se elimina la grabación anterior;
+  - la guía vuelve al paso inicial.
+- Al cambiar de variante se elimina cualquier grabación asociada a la variante anterior.
+- Se añadió protección para ejemplos sin pronunciaciones, evitando acceder a una lista vacía.
+- No se añadieron dependencias.
+- No se modificó el backend.
+
+### Pruebas
+
+- Se amplió `FakePronunciationAudioController` con `completePlayback()` para simular la finalización natural de un audio.
+- Se añadió una prueba del recorrido completo:
+  - escuchar referencia;
+  - avanzar a grabación;
+  - detener grabación;
+  - reproducir la voz;
+  - completar la práctica;
+  - reiniciar el recorrido.
+- Resultado final:
+  - `flutter test` → 8 pruebas superadas.
+
+### Validación manual
+
+- La práctica guiada completa funcionó en Linux Desktop.
+- El cambio entre `en-US` y `en-GB` funcionó correctamente.
+- Al cambiar de variante se reinició la guía y desapareció la grabación anterior.
+- El botón `Repetir práctica` apareció después de completar el recorrido.
+- El reinicio eliminó el WAV anterior y permitió volver a reproducir el audio de referencia.
+- Fue necesario reiniciar completamente la aplicación durante una validación porque una sesión anterior conservaba el estado nativo del reproductor.
+
+### Revisión de código y seguridad
+
+- Se revisó el diff completo del widget y sus pruebas.
+- Se eliminaron bloques y comentarios duplicados detectados durante el desarrollo.
+- Se protegió el acceso cuando `pronunciations` está vacío.
+- El audio continúa siendo local y temporal.
+- No se almacena ni transmite voz al backend.
+- La grabación anterior se elimina al cambiar de variante o reiniciar la práctica.
+- El reproductor se detiene antes de eliminar el WAV utilizado como fuente.
+- No se modificaron los permisos seguros ni la limpieza temporal implementados en B94.
+
+### Validaciones técnicas
+
+- `dart format` aplicado.
+- `flutter analyze` → `No issues found`.
+- `flutter test` → 8 pruebas superadas.
+- `git diff --check` → sin salida ni errores.
+
+### Pendiente para cerrar B95
 
 - Realizar commit y push.
 - Confirmar Git limpio y sincronizado.

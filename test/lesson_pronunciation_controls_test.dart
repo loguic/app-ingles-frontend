@@ -53,6 +53,13 @@ class FakePronunciationAudioController implements PronunciationAudioController {
     _playbackController.add(null);
   }
 
+  /// Simulates the natural completion of the active audio.
+  /// Simula la finalización natural del audio activo.
+  void completePlayback() {
+    activePlaybackId = null;
+    _playbackController.add(null);
+  }
+
   @override
   Future<void> startRecording(String recordingId) async {
     activeRecordingId = recordingId;
@@ -206,5 +213,53 @@ void main() {
     expect(find.text('Grabar mi voz'), findsOneWidget);
     expect(find.text('Grabación disponible'), findsNothing);
     expect(find.text('Reproducir mi voz'), findsNothing);
+  });
+
+  testWidgets('completes and restarts the guided pronunciation practice', (
+    tester,
+  ) async {
+    final audioController = FakePronunciationAudioController();
+
+    await tester.pumpWidget(buildTestWidget(audioController));
+
+    await tester.tap(find.byTooltip('Escuchar pronunciación').first);
+    await tester.pumpAndSettle();
+
+    audioController.completePlayback();
+    await tester.pumpAndSettle();
+
+    expect(find.text('Paso 2: graba tu repetición.'), findsOneWidget);
+
+    await tester.tap(find.text('Grabar mi voz'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Detener grabación'));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.text('Paso 3: escucha tu voz y compárala con la referencia.'),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.text('Reproducir mi voz'));
+    await tester.pumpAndSettle();
+
+    audioController.completePlayback();
+    await tester.pumpAndSettle();
+
+    expect(
+      find.text('Práctica completada: puedes repetir el recorrido.'),
+      findsOneWidget,
+    );
+    expect(find.text('Repetir práctica'), findsOneWidget);
+
+    await tester.tap(find.text('Repetir práctica'));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.text('Paso 1: escucha la pronunciación de referencia.'),
+      findsOneWidget,
+    );
+    expect(find.text('Repetir práctica'), findsNothing);
+    expect(find.text('Grabación disponible'), findsNothing);
   });
 }

@@ -816,7 +816,9 @@ La capacidad reutiliza la reproducción y grabación local desarrolladas en B93 
 - `flutter test` → 8 pruebas superadas.
 - `git diff --check` → sin salida ni errores.
 
-### Pendiente para cerrar B95
+### Cierre de B95
 
-- Realizar commit y push.
-- Confirmar Git limpio y sincronizado.
+- Commit: `c5be81d`.
+- Mensaje: `B95 añadir repetición guiada de pronunciación`.
+- Push realizado a `origin/master`.
+- Git quedó limpio y sincronizado en `master...origin/master`.

@@ -7,7 +7,11 @@ import '../services/pronunciation_audio_service.dart';
 
 /// Represents the current stage of the guided pronunciation practice.
 /// Representa la etapa actual de la práctica guiada de pronunciación.
-enum _GuidedPracticeStep { listen, record, review, repeat }
+enum _GuidedPracticeStep { listen, record, review, selfAssess, repeat }
+
+/// Represents the learner's subjective pronunciation assessment.
+/// Representa la autoevaluación subjetiva de pronunciación del estudiante.
+enum _PronunciationSelfAssessment { good, almost, repeat }
 
 /// Displays reference pronunciations and learner recording controls.
 /// Muestra pronunciaciones de referencia y controles de grabación.
@@ -51,6 +55,8 @@ class _LessonPronunciationControlsState
   _GuidedPracticeStep _guidedPracticeStep = _GuidedPracticeStep.listen;
   String? _activePronunciationLocale;
 
+  _PronunciationSelfAssessment? _selfAssessment;
+
   bool _isBusy = false;
 
   bool get _isRecording => _activeRecordingId == widget.exampleId;
@@ -79,9 +85,38 @@ class _LessonPronunciationControlsState
       _GuidedPracticeStep.record => 'Paso 2: graba tu repetición.',
       _GuidedPracticeStep.review =>
         'Paso 3: escucha tu voz y compárala con la referencia.',
+      _GuidedPracticeStep.selfAssess =>
+        'Paso 4: ¿cómo sentiste tu pronunciación?',
       _GuidedPracticeStep.repeat =>
         'Práctica completada: puedes repetir el recorrido.',
     };
+  }
+
+  /// Returns brief guidance based on the learner's own perception.
+  /// Devuelve una orientación breve según la percepción del estudiante.
+  String? get _selfAssessmentFeedback {
+    return switch (_selfAssessment) {
+      _PronunciationSelfAssessment.good =>
+        '¡Buen trabajo! Mantén el ritmo y vuelve a escuchar la referencia para consolidarlo.',
+      _PronunciationSelfAssessment.almost =>
+        'Vas por buen camino. Repite más despacio y concéntrate en el ritmo de la frase.',
+      _PronunciationSelfAssessment.repeat =>
+        'Repetir es parte del aprendizaje. Escucha nuevamente y prueba otra vez sin prisa.',
+      null => null,
+    };
+  }
+
+  /// Saves the temporary self-assessment and completes the guided sequence.
+  /// Guarda la autoevaluación temporal y completa la secuencia guiada.
+  void _selectSelfAssessment(_PronunciationSelfAssessment assessment) {
+    if (_guidedPracticeStep != _GuidedPracticeStep.selfAssess) {
+      return;
+    }
+
+    setState(() {
+      _selfAssessment = assessment;
+      _guidedPracticeStep = _GuidedPracticeStep.repeat;
+    });
   }
 
   /// Selects one pronunciation and securely restarts the guided sequence.
@@ -116,6 +151,7 @@ class _LessonPronunciationControlsState
         _activePronunciationLocale = locale;
         _guidedPracticeStep = _GuidedPracticeStep.listen;
         _recordingPath = null;
+        _selfAssessment = null;
       });
     } catch (_) {
       if (!mounted) {
@@ -178,12 +214,12 @@ class _LessonPronunciationControlsState
           _guidedPracticeStep = _GuidedPracticeStep.record;
         }
 
-        // Completes the sequence after the learner audio has finished.
-        // Completa la secuencia cuando termina el audio del estudiante.
+        // Opens self-assessment after the learner audio has finished.
+        // Abre la autoevaluación cuando termina el audio del estudiante.
         if (completedPlaybackId == 'recording:${widget.exampleId}' &&
             playbackId == null &&
             _guidedPracticeStep == _GuidedPracticeStep.review) {
-          _guidedPracticeStep = _GuidedPracticeStep.repeat;
+          _guidedPracticeStep = _GuidedPracticeStep.selfAssess;
         }
       });
     });
@@ -232,6 +268,7 @@ class _LessonPronunciationControlsState
 
       setState(() {
         _recordingPath = null;
+        _selfAssessment = null;
         _guidedPracticeStep = _GuidedPracticeStep.listen;
       });
     } catch (_) {
@@ -325,6 +362,12 @@ class _LessonPronunciationControlsState
       }
 
       await _audioService.startRecording(widget.exampleId);
+      if (mounted) {
+        setState(() {
+          _selfAssessment = null;
+          _guidedPracticeStep = _GuidedPracticeStep.record;
+        });
+      }
     } catch (_) {
       if (!mounted) {
         return;
@@ -572,8 +615,56 @@ class _LessonPronunciationControlsState
         Text('Variante activa: ${_localeLabel(_activePronunciation.locale)}'),
         const SizedBox(height: 4),
         Text(_guidedPracticeInstruction),
+        if (_guidedPracticeStep == _GuidedPracticeStep.selfAssess) ...[
+          const SizedBox(height: 8),
+          const Text('Elige la opción que mejor describa cómo te escuchaste:'),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              OutlinedButton(
+                onPressed:
+                    !_isBusy &&
+                        _activePlaybackId == null &&
+                        _activeRecordingId == null
+                    ? () => _selectSelfAssessment(
+                        _PronunciationSelfAssessment.good,
+                      )
+                    : null,
+                child: const Text('Me salió bien'),
+              ),
+              OutlinedButton(
+                onPressed:
+                    !_isBusy &&
+                        _activePlaybackId == null &&
+                        _activeRecordingId == null
+                    ? () => _selectSelfAssessment(
+                        _PronunciationSelfAssessment.almost,
+                      )
+                    : null,
+                child: const Text('Casi, necesito practicar'),
+              ),
+              OutlinedButton(
+                onPressed:
+                    !_isBusy &&
+                        _activePlaybackId == null &&
+                        _activeRecordingId == null
+                    ? () => _selectSelfAssessment(
+                        _PronunciationSelfAssessment.repeat,
+                      )
+                    : null,
+                child: const Text('Quiero repetir'),
+              ),
+            ],
+          ),
+        ],
         if (_guidedPracticeStep == _GuidedPracticeStep.repeat) ...[
           const SizedBox(height: 8),
+          if (_selfAssessmentFeedback != null) ...[
+            Text(_selfAssessmentFeedback!),
+            const SizedBox(height: 8),
+          ],
           OutlinedButton.icon(
             onPressed: _isBusy ? null : _restartGuidedPractice,
             icon: const Icon(Icons.replay),

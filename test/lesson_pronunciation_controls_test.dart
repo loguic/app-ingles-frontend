@@ -215,13 +215,15 @@ void main() {
     expect(find.text('Reproducir mi voz'), findsNothing);
   });
 
-  testWidgets('completes and restarts the guided pronunciation practice', (
+  testWidgets('self-assesses and restarts the guided pronunciation practice', (
     tester,
   ) async {
     final audioController = FakePronunciationAudioController();
 
     await tester.pumpWidget(buildTestWidget(audioController));
 
+    // Step 1: listen to the selected reference pronunciation.
+    // Paso 1: escucha la pronunciación de referencia seleccionada.
     await tester.tap(find.byTooltip('Escuchar pronunciación').first);
     await tester.pumpAndSettle();
 
@@ -230,6 +232,8 @@ void main() {
 
     expect(find.text('Paso 2: graba tu repetición.'), findsOneWidget);
 
+    // Step 2: record a learner repetition.
+    // Paso 2: graba una repetición del estudiante.
     await tester.tap(find.text('Grabar mi voz'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Detener grabación'));
@@ -240,18 +244,42 @@ void main() {
       findsOneWidget,
     );
 
+    // Step 3: review the learner recording.
+    // Paso 3: escucha la grabación del estudiante.
     await tester.tap(find.text('Reproducir mi voz'));
     await tester.pumpAndSettle();
 
     audioController.completePlayback();
     await tester.pumpAndSettle();
 
+    // Step 4: choose one subjective self-assessment.
+    // Paso 4: elige una autoevaluación subjetiva.
+    expect(
+      find.text('Paso 4: ¿cómo sentiste tu pronunciación?'),
+      findsOneWidget,
+    );
+    expect(find.text('Me salió bien'), findsOneWidget);
+    expect(find.text('Casi, necesito practicar'), findsOneWidget);
+    expect(find.text('Quiero repetir'), findsOneWidget);
+    expect(find.text('Repetir práctica'), findsNothing);
+
+    await tester.tap(find.text('Casi, necesito practicar'));
+    await tester.pumpAndSettle();
+
     expect(
       find.text('Práctica completada: puedes repetir el recorrido.'),
       findsOneWidget,
     );
+    expect(
+      find.text(
+        'Vas por buen camino. Repite más despacio y concéntrate en el ritmo de la frase.',
+      ),
+      findsOneWidget,
+    );
     expect(find.text('Repetir práctica'), findsOneWidget);
 
+    // Restarting removes both the recording and the temporary assessment.
+    // Reiniciar elimina la grabación y la autoevaluación temporal.
     await tester.tap(find.text('Repetir práctica'));
     await tester.pumpAndSettle();
 
@@ -260,6 +288,13 @@ void main() {
       findsOneWidget,
     );
     expect(find.text('Repetir práctica'), findsNothing);
+    expect(find.text('Casi, necesito practicar'), findsNothing);
+    expect(
+      find.text(
+        'Vas por buen camino. Repite más despacio y concéntrate en el ritmo de la frase.',
+      ),
+      findsNothing,
+    );
     expect(find.text('Grabación disponible'), findsNothing);
   });
 }

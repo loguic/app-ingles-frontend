@@ -822,3 +822,100 @@ La capacidad reutiliza la reproducción y grabación local desarrolladas en B93 
 - Mensaje: `B95 añadir repetición guiada de pronunciación`.
 - Push realizado a `origin/master`.
 - Git quedó limpio y sincronizado en `master...origin/master`.
+
+## B96 — Autoevaluación guiada de pronunciación
+
+### Capacidad vertical
+
+Después de escuchar su propia grabación, el estudiante puede reflexionar subjetivamente sobre su pronunciación mediante el recorrido:
+
+`Escuchar referencia → Grabar → Escuchar mi voz → Autoevaluarme → Retroalimentación pedagógica → Repetir práctica`
+
+La capacidad no realiza reconocimiento automático ni asigna una puntuación. La orientación se basa únicamente en la percepción seleccionada por el estudiante.
+
+### Implementación realizada
+
+- Se amplió `_GuidedPracticeStep` con la etapa `selfAssess`.
+- El recorrido guiado ahora contiene:
+  - `listen`;
+  - `record`;
+  - `review`;
+  - `selfAssess`;
+  - `repeat`.
+- Al terminar la reproducción de la voz del estudiante, la guía avanza a la autoevaluación.
+- Se añadió `_PronunciationSelfAssessment` con las opciones:
+  - `good`;
+  - `almost`;
+  - `repeat`.
+- La interfaz muestra:
+  - `Me salió bien`;
+  - `Casi, necesito practicar`;
+  - `Quiero repetir`.
+- La elección se guarda temporalmente en `_selfAssessment`.
+- Se muestra una orientación pedagógica breve según la opción seleccionada.
+- Después de elegir una opción, la guía avanza al estado `repeat`.
+- La grabación y el audio de referencia continúan disponibles durante la autoevaluación.
+- La autoevaluación anterior se limpia al:
+  - cambiar de variante;
+  - reiniciar la práctica;
+  - iniciar una nueva grabación.
+- No se añadieron dependencias.
+- No se modificó el backend.
+- No se añadió persistencia de la autoevaluación.
+
+### Pruebas
+
+- Se actualizó la prueba automatizada del recorrido completo.
+- La prueba verifica:
+  - reproducción de la referencia;
+  - avance a grabación;
+  - creación de una grabación válida;
+  - reproducción de la voz del estudiante;
+  - aparición del Paso 4;
+  - presencia de las tres opciones de autoevaluación;
+  - selección de `Casi, necesito practicar`;
+  - aparición de la orientación pedagógica correspondiente;
+  - aparición del botón `Repetir práctica`;
+  - limpieza de la grabación y de la autoevaluación al reiniciar.
+- Resultado final:
+  - `flutter test` → 8 pruebas superadas.
+
+### Validación manual
+
+- El recorrido completo funcionó correctamente en Linux Desktop.
+- Después de escuchar la voz apareció el Paso 4.
+- Las tres opciones de autoevaluación se mostraron correctamente.
+- Al elegir una opción:
+  - desaparecieron las opciones;
+  - apareció la orientación pedagógica;
+  - apareció el botón `Repetir práctica`.
+- El audio de referencia y la grabación continuaron disponibles.
+- Al reiniciar:
+  - la guía volvió al Paso 1;
+  - desapareció la orientación anterior;
+  - se eliminó la grabación temporal anterior.
+- Al cambiar entre `en-US` y `en-GB`, no permaneció la autoevaluación anterior.
+
+### Revisión de código y seguridad
+
+- Se revisó el diff completo del widget y de su prueba.
+- La autoevaluación se mantiene únicamente en memoria local.
+- No se transmite la elección al backend.
+- No se transmite ni almacena la voz fuera del flujo temporal existente.
+- No se añadió reconocimiento automático, puntuación fonética ni inteligencia artificial.
+- No se modificó la gestión segura del archivo WAV temporal.
+- No se añadieron dependencias ni cambios fuera del alcance de B96.
+
+### Validaciones técnicas
+
+- `dart format` aplicado.
+- `flutter analyze` → `No issues found`.
+- Prueba específica de pronunciación → 7 pruebas superadas.
+- Suite completa `flutter test` → 8 pruebas superadas.
+- `git diff --check` → sin salida ni errores.
+
+### Cierre de B96
+
+- Commit funcional: `848ea72`.
+- Mensaje: `B96 añadir autoevaluación guiada de pronunciación`.
+- Commit documental, push y confirmación de Git limpio pendientes.

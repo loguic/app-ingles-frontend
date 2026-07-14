@@ -917,5 +917,105 @@ La capacidad no realiza reconocimiento automático ni asigna una puntuación. La
 ### Cierre de B96
 
 - Commit funcional: `848ea72`.
-- Mensaje: `B96 añadir autoevaluación guiada de pronunciación`.
+- Mensaje funcional: `B96 añadir autoevaluación guiada de pronunciación`.
+- Commit documental: `01574d8`.
+- Mensaje documental: `docs cerrar B96 en bitácora`.
+- Push realizado a `origin/master`.
+- Git quedó limpio y sincronizado en `master...origin/master`.
+
+## B97 — Resumen local de finalización de una lección
+
+### Capacidad vertical
+
+El estudiante puede visualizar el avance de los ejercicios de la lección actual mediante el recorrido:
+
+`Responder ejercicios → Ver avance → Completar todos → Consultar resultado global → Recibir orientación pedagógica`
+
+La finalización representa únicamente la sesión actual. B97 no afirma que la lección quede completada permanentemente en el backend.
+
+### Implementación realizada
+
+- `LessonDetailCard` pasó de `StatelessWidget` a `StatefulWidget`.
+- Se añadió `_exerciseResults`, un mapa local que guarda el último resultado de cada ejercicio mediante su `exercise.id`.
+- Se calculan:
+  - ejercicios totales;
+  - ejercicios completados;
+  - respuestas correctas;
+  - estado de finalización de la lección.
+- La interfaz muestra inicialmente:
+  - `Ejercicios completados: X de Y`.
+- Cuando todos los ejercicios han sido comprobados, muestra:
+  - `Lección completada`;
+  - `Respuestas correctas: X de Y`;
+  - una orientación pedagógica según el resultado.
+- Una nueva comprobación del mismo ejercicio actualiza su resultado sin aumentar el número de ejercicios completados.
+- `LessonExerciseCard` incorpora el callback opcional `onResultChanged`.
+- El callback solo se ejecuta cuando el backend devuelve un resultado válido.
+- Se añadió inyección opcional de `ApiService` para realizar pruebas sin utilizar el backend real.
+- `LessonDetailCard` acepta el contrato `PronunciationAudioController`, permitiendo probarlo sin activar complementos nativos.
+- No se añadieron dependencias.
+- No se modificó el backend.
+
+### Pruebas
+
+- Se creó `test/lesson_detail_card_test.dart`.
+- La prueba utiliza:
+  - `FakeApiService`;
+  - `FakePronunciationAudioController`;
+  - una lección local con dos ejercicios.
+- La prueba verifica:
+  - estado inicial `0 de 2`;
+  - avance a `1 de 2`;
+  - finalización en `2 de 2`;
+  - resultado inicial de `1 de 2` respuestas correctas;
+  - orientación para ejercicios que necesitan revisión;
+  - nueva comprobación del segundo ejercicio;
+  - actualización a `2 de 2` respuestas correctas;
+  - orientación de resultado perfecto;
+  - ausencia de conteo duplicado.
+- Los recursos falsos de audio se liberan mediante `addTearDown`.
+- Resultado final:
+  - prueba específica B97 → 1 prueba superada;
+  - suite completa → 9 pruebas superadas.
+
+### Validación manual
+
+- El recorrido funcionó correctamente en Linux Desktop.
+- El resumen comenzó en `0 de N`.
+- Cada ejercicio comprobado actualizó el avance.
+- Al responder todos los ejercicios apareció `Lección completada`.
+- Se mostraron las respuestas correctas respecto al total.
+- La orientación pedagógica cambió según los resultados.
+- Al volver a comprobar un ejercicio:
+  - no aumentó el número de ejercicios completados;
+  - se actualizó el número de respuestas correctas;
+  - se mantuvo la retroalimentación individual.
+- Al salir y volver a entrar, el resumen comenzó nuevamente en `0 de N`, según el alcance local aprobado.
+
+### Revisión de código y seguridad
+
+- Se revisaron los cambios completos de:
+  - `lesson_detail_card.dart`;
+  - `lesson_exercise_card.dart`;
+  - `lesson_detail_card_test.dart`.
+- El progreso global de B97 permanece únicamente en memoria durante la sesión.
+- No se añadió una finalización persistente ficticia.
+- Los resultados individuales continúan guardándose mediante el backend existente.
+- La prueba no realiza solicitudes reales al backend.
+- La prueba no activa plugins nativos de audio.
+- No se modificó la gestión temporal de grabaciones.
+- No se añadieron dependencias ni cambios fuera del alcance de B97.
+
+### Validaciones técnicas
+
+- `dart format` aplicado.
+- Prueba específica B97 → 1 prueba superada.
+- Suite completa `flutter test` → 9 pruebas superadas.
+- `flutter analyze` → `No issues found`.
+- `git diff --check` → sin salida ni errores.
+
+### Cierre de B97
+
+- Commit funcional: `ce3093c`.
+- Mensaje funcional: `B97 añadir resumen local de finalización de lección`.
 - Commit documental, push y confirmación de Git limpio pendientes.

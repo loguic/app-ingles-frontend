@@ -11,6 +11,8 @@ class LessonExerciseCard extends StatefulWidget {
     required this.levelId,
     required this.unitId,
     required this.lessonId,
+    this.apiService,
+    this.onResultChanged,
     super.key,
   });
 
@@ -19,12 +21,22 @@ class LessonExerciseCard extends StatefulWidget {
   final String unitId;
   final String lessonId;
 
+  /// Optional API service used to make the widget testable.
+  /// Servicio API opcional que permite probar el widget.
+  final ApiService? apiService;
+
+  /// Reports each successfully checked result to the parent widget.
+  /// Comunica cada resultado comprobado correctamente al widget padre.
+  final ValueChanged<bool>? onResultChanged;
+
   @override
   State<LessonExerciseCard> createState() => _LessonExerciseCardState();
 }
 
 class _LessonExerciseCardState extends State<LessonExerciseCard> {
-  static final ApiService _apiService = ApiService();
+  static final ApiService _defaultApiService = ApiService();
+
+  ApiService get _apiService => widget.apiService ?? _defaultApiService;
 
   int? _selectedOptionIndex;
   bool? _isCorrect;
@@ -71,6 +83,7 @@ class _LessonExerciseCardState extends State<LessonExerciseCard> {
         selectedIndex: selectedOptionIndex,
         correct: result,
       );
+      widget.onResultChanged?.call(result);
     }
 
     setState(() {
@@ -112,18 +125,17 @@ class _LessonExerciseCardState extends State<LessonExerciseCard> {
             ),
             const SizedBox(height: 8),
             ...widget.exercise.options.asMap().entries.map(
-                  (entry) => ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    leading: Icon(
-                      selectedOptionIndex == entry.key
-                          ? Icons.radio_button_checked
-                          : Icons.radio_button_unchecked,
-                    ),
-                    title: Text(entry.value),
-                    onTap:
-                        _isSubmitting ? null : () => _selectOption(entry.key),
-                  ),
+              (entry) => ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: Icon(
+                  selectedOptionIndex == entry.key
+                      ? Icons.radio_button_checked
+                      : Icons.radio_button_unchecked,
                 ),
+                title: Text(entry.value),
+                onTap: _isSubmitting ? null : () => _selectOption(entry.key),
+              ),
+            ),
             const SizedBox(height: 8),
             ElevatedButton(
               onPressed: selectedOptionIndex == null || _isSubmitting

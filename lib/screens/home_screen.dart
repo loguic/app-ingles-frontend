@@ -85,9 +85,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 const SizedBox(height: 16),
                 _buildBackendStatus(),
                 const SizedBox(height: 16),
-                ProgressSummaryCard(
-                  key: ValueKey(_progressRefreshCounter),
-                ),
+                ProgressSummaryCard(key: ValueKey(_progressRefreshCounter)),
                 const SizedBox(height: 16),
                 LevelSelectorCard(
                   selectedLevelCode: _selectedLevelCode,
@@ -102,6 +100,9 @@ class _HomeScreenState extends State<HomeScreen> {
                 if (_selectedUnitId != null) ...[
                   const SizedBox(height: 16),
                   LessonListCard(
+                    key: ValueKey(
+                      'lesson-list-${_selectedUnitId!}-$_progressRefreshCounter',
+                    ),
                     selectedUnitId: _selectedUnitId!,
                     selectedLessonId: _selectedLessonId,
                     onLessonSelected: _selectLesson,

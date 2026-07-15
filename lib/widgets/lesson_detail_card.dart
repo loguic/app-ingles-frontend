@@ -4,6 +4,7 @@ import '../models/lesson.dart';
 import '../services/api_service.dart';
 import '../services/pronunciation_audio_service.dart';
 import 'info_card.dart';
+import 'lesson_conversation_card.dart';
 import 'lesson_exercise_card.dart';
 import 'lesson_pronunciation_controls.dart';
 
@@ -125,6 +126,24 @@ class _LessonDetailCardState extends State<LessonDetailCard> {
               }).toList(),
             ),
           ),
+          if (lesson.conversations.isNotEmpty)
+            LessonContentSection(
+              title: 'Conversación guiada',
+              child: Column(
+                children: lesson.conversations
+                    .map(
+                      (conversation) => Padding(
+                        padding: const EdgeInsets.only(bottom: 12),
+                        child: LessonConversationCard(
+                          key: ValueKey('conversation:${conversation.id}'),
+                          conversation: conversation,
+                          audioService: widget.pronunciationAudioService,
+                        ),
+                      ),
+                    )
+                    .toList(),
+              ),
+            ),
           LessonContentSection(
             title: 'Ejercicios',
             child: Column(

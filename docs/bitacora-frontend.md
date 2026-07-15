@@ -1124,3 +1124,58 @@ B98 representa ejercicios respondidos al menos una vez. No afirma que la lecció
 - Commit funcional: `329881d`.
 - Mensaje funcional: `B98 añadir avance persistente por lección`.
 - Commit documental, push y confirmación de Git limpio pendientes.
+
+## B99 — Práctica conversacional guiada
+
+Estado: implementación y validación manual completadas; pendiente cierre Git/GitHub.
+
+### Objetivo
+
+Incorporar una primera práctica conversacional guiada y escalable que permita escuchar al interlocutor, comprender su intervención, responder oralmente y revisar la propia grabación antes de avanzar.
+
+### Cambios realizados
+
+- Se añadieron los modelos `ConversationTurn` y `Conversation`.
+- `Lesson` admite ahora una colección opcional de conversaciones.
+- Se mantuvo compatibilidad con lecciones que no contienen conversaciones.
+- Se reutilizó `LessonPronunciation` para las variantes `en-US` y `en-GB`.
+- Se creó `LessonConversationCard`.
+- Se integró la conversación en `LessonDetailCard` reutilizando el controlador de audio compartido.
+- Se implementó el recorrido: escuchar al interlocutor, comprender el turno, responder como estudiante, grabar, escuchar la propia voz, avanzar y repetir la conversación.
+- La escucha de la propia grabación es obligatoria antes de avanzar.
+- Los archivos WAV temporales se eliminan al cambiar de turno.
+- No se añadieron IA, reconocimiento de voz, puntuación automática ni persistencia nueva.
+- Se añadieron cuatro audios provisionales generados con eSpeak NG para los turnos del interlocutor en variantes estadounidense y británica.
+- Se actualizó la identidad visual base a `LOGUIC English`, con paleta índigo y el eslogan `Escucha. Habla. Lee. Avanza.`
+
+### Pruebas automatizadas
+
+- `lesson_conversation_model_test.dart`: deserialización y compatibilidad sin conversaciones.
+- `lesson_conversation_card_test.dart`: variantes regionales, escucha, comprensión, grabación, reproducción, bloqueo de avance, finalización y reinicio.
+- `flutter analyze`: sin incidencias.
+- Suite completa: `13 tests passed`.
+- `git diff --check`: sin errores.
+
+### Validación manual
+
+- Aplicación Linux ejecutada con el backend disponible en `http://127.0.0.1:8001/api/v1`.
+- Identidad visual de LOGUIC English mostrada correctamente.
+- Primer turno validado con `en-US`.
+- Primer turno validado con `en-GB`.
+- Conversación completa validada.
+- Grabación y reproducción de la voz del estudiante correctas.
+- Avance condicionado a escuchar la grabación confirmado.
+- Finalización y repetición de la conversación correctas.
+- Sin problemas visuales ni auditivos detectados.
+
+### Archivos principales
+
+- `lib/models/lesson.dart`
+- `lib/widgets/lesson_conversation_card.dart`
+- `lib/widgets/lesson_detail_card.dart`
+- `test/lesson_conversation_model_test.dart`
+- `test/lesson_conversation_card_test.dart`
+- `assets/audio/a1_u1_l1_c1_t1_us.wav`
+- `assets/audio/a1_u1_l1_c1_t1_uk.wav`
+- `assets/audio/a1_u1_l1_c1_t3_us.wav`
+- `assets/audio/a1_u1_l1_c1_t3_uk.wav`

@@ -8,7 +8,7 @@ void main() {
   ) async {
     await tester.pumpWidget(const AppIngles());
 
-    expect(find.text('App Inglés'), findsOneWidget);
-    expect(find.text('Bienvenido a App Inglés'), findsOneWidget);
+    expect(find.text('LOGUIC English'), findsOneWidget);
+    expect(find.text('Bienvenido a LOGUIC English'), findsOneWidget);
   });
 }

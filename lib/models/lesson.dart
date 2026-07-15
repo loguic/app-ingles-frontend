@@ -58,6 +58,75 @@ class LessonExample {
   }
 }
 
+/// Represents one turn inside a conversational activity.
+/// Representa un turno dentro de una actividad conversacional.
+class ConversationTurn {
+  const ConversationTurn({
+    required this.id,
+    required this.speaker,
+    required this.en,
+    this.es,
+    this.pronunciations = const [],
+  });
+
+  final String id;
+  final String speaker;
+  final String en;
+  final String? es;
+  final List<LessonPronunciation> pronunciations;
+
+  bool get isPartner => speaker == "partner";
+  bool get isLearner => speaker == "learner";
+
+  factory ConversationTurn.fromJson(Map<String, dynamic> json) {
+    final pronunciations = json["pronunciations"] as List<dynamic>? ?? [];
+
+    return ConversationTurn(
+      id: json["id"] as String,
+      speaker: json["speaker"] as String,
+      en: json["en"] as String,
+      es: json["es"] as String?,
+      pronunciations: pronunciations
+          .cast<Map<String, dynamic>>()
+          .map(LessonPronunciation.fromJson)
+          .toList(),
+    );
+  }
+}
+
+/// Represents one complete conversational activity.
+/// Representa una actividad conversacional completa.
+class Conversation {
+  const Conversation({
+    required this.id,
+    required this.title,
+    this.context,
+    this.mode = "guided",
+    this.turns = const [],
+  });
+
+  final String id;
+  final String title;
+  final String? context;
+  final String mode;
+  final List<ConversationTurn> turns;
+
+  factory Conversation.fromJson(Map<String, dynamic> json) {
+    final turns = json["turns"] as List<dynamic>? ?? [];
+
+    return Conversation(
+      id: json["id"] as String,
+      title: json["title"] as String,
+      context: json["context"] as String?,
+      mode: json["mode"] as String? ?? "guided",
+      turns: turns
+          .cast<Map<String, dynamic>>()
+          .map(ConversationTurn.fromJson)
+          .toList(),
+    );
+  }
+}
+
 /// Represents an exercise inside a lesson.
 /// Representa un ejercicio dentro de una lección.
 class LessonExercise {
@@ -99,6 +168,7 @@ class Lesson {
     required this.vocabulary,
     required this.grammar,
     required this.examples,
+    this.conversations = const [],
     required this.exercises,
   });
 
@@ -108,10 +178,12 @@ class Lesson {
   final List<String> vocabulary;
   final List<String> grammar;
   final List<LessonExample> examples;
+  final List<Conversation> conversations;
   final List<LessonExercise> exercises;
 
   factory Lesson.fromJson(Map<String, dynamic> json) {
     final examples = json['examples'] as List<dynamic>? ?? [];
+    final conversations = json['conversations'] as List<dynamic>? ?? [];
     final exercises = json['exercises'] as List<dynamic>? ?? [];
 
     return Lesson(
@@ -123,6 +195,10 @@ class Lesson {
       examples: examples
           .cast<Map<String, dynamic>>()
           .map(LessonExample.fromJson)
+          .toList(),
+      conversations: conversations
+          .cast<Map<String, dynamic>>()
+          .map(Conversation.fromJson)
           .toList(),
       exercises: exercises
           .cast<Map<String, dynamic>>()

@@ -70,7 +70,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('App Inglés'),
+        title: const Text('LOGUIC English'),
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
       ),
       body: SingleChildScrollView(
@@ -120,13 +120,13 @@ class _HomeScreenState extends State<HomeScreen> {
     return const Column(
       children: [
         Text(
-          'Bienvenido a App Inglés',
+          'Bienvenido a LOGUIC English',
           textAlign: TextAlign.center,
           style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
         ),
         SizedBox(height: 8),
         Text(
-          'Aprende inglés paso a paso por niveles, unidades y lecciones.',
+          'Escucha. Habla. Lee. Avanza.',
           textAlign: TextAlign.center,
           style: TextStyle(fontSize: 16),
         ),

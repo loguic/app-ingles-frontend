@@ -1018,4 +1018,109 @@ La finalización representa únicamente la sesión actual. B97 no afirma que la 
 
 - Commit funcional: `ce3093c`.
 - Mensaje funcional: `B97 añadir resumen local de finalización de lección`.
+- Commit documental: `bca1dce`.
+- Mensaje documental: `docs cerrar B97 en bitácora`.
+- Push realizado a `origin/master`.
+- Git quedó limpio y sincronizado en `master...origin/master`.
+
+## B98 — Indicador persistente de avance por lección
+
+### Capacidad vertical
+
+El estudiante puede visualizar en la lista de lecciones el avance persistido de los ejercicios mediante el recorrido:
+
+`Responder ejercicios → Regresar al inicio → Recuperar progreso guardado → Ver avance por lección`
+
+B98 representa ejercicios respondidos al menos una vez. No afirma que la lección esté aprobada ni identifica el resultado más reciente de cada ejercicio.
+
+### Contrato confirmado del backend
+
+- El backend guarda cada respuesta como un nuevo registro de `UserProgress`.
+- No existe una restricción única por usuario y ejercicio.
+- Responder nuevamente el mismo ejercicio crea otro intento.
+- El contrato de progreso disponible en el frontend no incluye `id` ni `created_at`.
+- Por tanto, el frontend no puede identificar con seguridad cuál fue el último intento.
+- B98 calcula únicamente ejercicios respondidos únicos mediante `exercise_id`.
+
+### Implementación realizada
+
+- `LessonListCard` acepta opcionalmente:
+  - `ApiService`;
+  - `userId`, con valor predeterminado `demo-user`.
+- Se añadió carga conjunta de:
+  - lecciones de la unidad;
+  - registros persistidos de progreso.
+- Para cada lección:
+  - se obtienen sus identificadores de ejercicios;
+  - se filtran los registros correspondientes a su `lessonId`;
+  - se ignoran ejercicios que no pertenecen a la lección;
+  - los intentos repetidos se deduplican mediante `exerciseId`.
+- Se muestran únicamente los estados aprobados:
+  - `Sin actividad`;
+  - `En progreso: X de Y ejercicios`;
+  - `Todos los ejercicios respondidos`.
+- No se muestra:
+  - lección aprobada;
+  - finalización permanente;
+  - resultado final correcto.
+- `HomeScreen` añade una `ValueKey` a `LessonListCard`.
+- La clave incorpora `_progressRefreshCounter`, permitiendo recargar el avance al regresar desde una lección.
+- No se modificó el backend.
+- No se añadieron dependencias.
+
+### Pruebas
+
+- Se creó `test/lesson_list_card_test.dart`.
+- La prueba utiliza un `FakeApiService`.
+- No realiza solicitudes al backend real.
+- Se prueban tres lecciones:
+  - sin actividad;
+  - con progreso parcial;
+  - con todos los ejercicios respondidos.
+- La prueba verifica:
+  - `Sin actividad`;
+  - `En progreso: 1 de 2 ejercicios`;
+  - `Todos los ejercicios respondidos`;
+  - deduplicación de intentos repetidos;
+  - exclusión de registros cuyo ejercicio no pertenece a la lección.
+- La primera ejecución falló porque `find.text()` buscaba el estado como texto independiente.
+- El estado forma parte del subtítulo junto con el objetivo de la lección.
+- La prueba se corrigió usando `find.textContaining()` sin modificar la lógica funcional.
+
+### Validación manual
+
+- El backend respondió correctamente en `http://127.0.0.1:8001/api/v1/health`.
+- La aplicación se ejecutó correctamente en Linux Desktop.
+- La lista mostró un indicador persistente con valores numéricos reales.
+- El avance se actualizó al regresar desde una lección.
+- Volver a responder el mismo ejercicio no incrementó incorrectamente el conteo.
+- No se mostró ninguna afirmación de aprobación o finalización permanente.
+- Flutter se cerró correctamente después de la validación.
+
+### Revisión de código y seguridad
+
+- Se revisó el diff completo de:
+  - `home_screen.dart`;
+  - `lesson_list_card.dart`;
+  - `lesson_list_card_test.dart`.
+- `HomeScreen` solo incorpora la clave necesaria para refrescar la lista.
+- El cálculo usa conjuntos de identificadores y no modifica los registros recibidos.
+- Los intentos repetidos no aumentan el número de ejercicios respondidos.
+- Los registros de otros ejercicios no contaminan el progreso de la lección.
+- No se exponen datos adicionales del usuario.
+- No se añadieron escrituras nuevas en el backend.
+- No se añadieron dependencias ni cambios fuera del alcance de B98.
+
+### Validaciones técnicas
+
+- `dart format` aplicado.
+- Prueba específica B98 → 1 prueba superada.
+- Suite completa `flutter test` → 10 pruebas superadas.
+- `flutter analyze` → `No issues found`.
+- `git diff --check` → sin salida ni errores.
+
+### Cierre de B98
+
+- Commit funcional: `329881d`.
+- Mensaje funcional: `B98 añadir avance persistente por lección`.
 - Commit documental, push y confirmación de Git limpio pendientes.

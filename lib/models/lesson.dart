@@ -58,6 +58,39 @@ class LessonExample {
   }
 }
 
+/// Represents one selectable learner response inside a conversation.
+/// Representa una respuesta seleccionable del estudiante dentro de una conversación.
+class ConversationChoice {
+  const ConversationChoice({
+    required this.id,
+    required this.en,
+    this.es,
+    this.pronunciations = const [],
+    this.nextTurnId,
+  });
+
+  final String id;
+  final String en;
+  final String? es;
+  final List<LessonPronunciation> pronunciations;
+  final String? nextTurnId;
+
+  factory ConversationChoice.fromJson(Map<String, dynamic> json) {
+    final pronunciations = json["pronunciations"] as List<dynamic>? ?? [];
+
+    return ConversationChoice(
+      id: json["id"] as String,
+      en: json["en"] as String,
+      es: json["es"] as String?,
+      pronunciations: pronunciations
+          .cast<Map<String, dynamic>>()
+          .map(LessonPronunciation.fromJson)
+          .toList(),
+      nextTurnId: json["next_turn_id"] as String?,
+    );
+  }
+}
+
 /// Represents one turn inside a conversational activity.
 /// Representa un turno dentro de una actividad conversacional.
 class ConversationTurn {
@@ -67,6 +100,8 @@ class ConversationTurn {
     required this.en,
     this.es,
     this.pronunciations = const [],
+    this.nextTurnId,
+    this.choices = const [],
   });
 
   final String id;
@@ -74,12 +109,16 @@ class ConversationTurn {
   final String en;
   final String? es;
   final List<LessonPronunciation> pronunciations;
+  final String? nextTurnId;
+  final List<ConversationChoice> choices;
 
   bool get isPartner => speaker == "partner";
   bool get isLearner => speaker == "learner";
+  bool get hasChoices => choices.isNotEmpty;
 
   factory ConversationTurn.fromJson(Map<String, dynamic> json) {
     final pronunciations = json["pronunciations"] as List<dynamic>? ?? [];
+    final choices = json["choices"] as List<dynamic>? ?? [];
 
     return ConversationTurn(
       id: json["id"] as String,
@@ -89,6 +128,11 @@ class ConversationTurn {
       pronunciations: pronunciations
           .cast<Map<String, dynamic>>()
           .map(LessonPronunciation.fromJson)
+          .toList(),
+      nextTurnId: json["next_turn_id"] as String?,
+      choices: choices
+          .cast<Map<String, dynamic>>()
+          .map(ConversationChoice.fromJson)
           .toList(),
     );
   }
@@ -102,6 +146,7 @@ class Conversation {
     required this.title,
     this.context,
     this.mode = "guided",
+    this.startTurnId,
     this.turns = const [],
   });
 
@@ -109,7 +154,34 @@ class Conversation {
   final String title;
   final String? context;
   final String mode;
+  final String? startTurnId;
   final List<ConversationTurn> turns;
+
+  /// Finds a turn by its stable identifier.
+  /// Busca un turno mediante su identificador estable.
+  ConversationTurn? turnById(String? turnId) {
+    if (turnId == null) {
+      return null;
+    }
+
+    for (final turn in turns) {
+      if (turn.id == turnId) {
+        return turn;
+      }
+    }
+
+    return null;
+  }
+
+  /// Resolves the declared start turn while preserving guided compatibility.
+  /// Resuelve el turno inicial declarado conservando compatibilidad guiada.
+  ConversationTurn? get initialTurn {
+    if (turns.isEmpty) {
+      return null;
+    }
+
+    return startTurnId == null ? turns.first : turnById(startTurnId);
+  }
 
   factory Conversation.fromJson(Map<String, dynamic> json) {
     final turns = json["turns"] as List<dynamic>? ?? [];
@@ -119,6 +191,7 @@ class Conversation {
       title: json["title"] as String,
       context: json["context"] as String?,
       mode: json["mode"] as String? ?? "guided",
+      startTurnId: json["start_turn_id"] as String?,
       turns: turns
           .cast<Map<String, dynamic>>()
           .map(ConversationTurn.fromJson)

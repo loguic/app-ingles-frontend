@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../controllers/conversation_flow_controller.dart';
 import '../models/lesson.dart';
 import '../services/pronunciation_audio_service.dart';
 
@@ -36,6 +37,7 @@ class _LessonConversationCardState extends State<LessonConversationCard> {
   StreamSubscription<String?>? _playbackSubscription;
   StreamSubscription<String?>? _recordingSubscription;
 
+  late final ConversationFlowController _flowController;
   int _currentTurnIndex = 0;
   String? _activePlaybackId;
   String? _activeRecordingId;
@@ -50,6 +52,12 @@ class _LessonConversationCardState extends State<LessonConversationCard> {
       widget.conversation.turns[_currentTurnIndex];
 
   bool get _isRecording => _activeRecordingId == _currentTurn.id;
+
+  String get _learnerText =>
+      _flowController.selectedChoice?.en ?? _currentTurn.en;
+
+  String? get _learnerTranslation =>
+      _flowController.selectedChoice?.es ?? _currentTurn.es;
 
   LessonPronunciation? get _activePronunciation {
     final pronunciations = _currentTurn.pronunciations;
@@ -68,14 +76,20 @@ class _LessonConversationCardState extends State<LessonConversationCard> {
   void initState() {
     super.initState();
 
+    _flowController = ConversationFlowController(widget.conversation);
     _activePlaybackId = widget.audioService.activePlaybackId;
     _activeRecordingId = widget.audioService.activeRecordingId;
 
-    if (widget.conversation.turns.isNotEmpty) {
-      _step = _initialStep(widget.conversation.turns.first);
-      _selectAvailableLocale(widget.conversation.turns.first);
-    } else {
+    final initialTurn = _flowController.currentTurn;
+
+    if (initialTurn == null) {
       _step = _ConversationPracticeStep.completed;
+    } else {
+      _currentTurnIndex = widget.conversation.turns.indexWhere(
+        (turn) => turn.id == initialTurn.id,
+      );
+      _selectAvailableLocale(initialTurn);
+      _step = _initialStep(initialTurn);
     }
 
     _playbackSubscription = widget.audioService.onPlaybackChanged.listen((
@@ -126,6 +140,30 @@ class _LessonConversationCardState extends State<LessonConversationCard> {
     return turn.isPartner
         ? _ConversationPracticeStep.listenPartner
         : _ConversationPracticeStep.prepareLearner;
+  }
+
+  void _selectChoice(ConversationChoice choice) {
+    if (_isBusy ||
+        _activePlaybackId != null ||
+        _activeRecordingId != null ||
+        _step != _ConversationPracticeStep.prepareLearner) {
+      return;
+    }
+
+    final selected = _flowController.selectChoice(choice.id);
+
+    if (!selected) {
+      setState(() {
+        _errorMessage = "No se pudo seleccionar esta respuesta.";
+      });
+      return;
+    }
+
+    setState(() {
+      _recordingPath = null;
+      _hasReviewedRecording = false;
+      _errorMessage = null;
+    });
   }
 
   void _selectAvailableLocale(ConversationTurn turn) {
@@ -383,15 +421,29 @@ class _LessonConversationCardState extends State<LessonConversationCard> {
 
   void _moveToNextTurn({bool updateState = true}) {
     void move() {
-      final nextIndex = _currentTurnIndex + 1;
+      final advanced = _flowController.advance();
 
-      if (nextIndex >= widget.conversation.turns.length) {
+      if (!advanced) {
+        _errorMessage = "No se pudo avanzar al siguiente turno.";
+        return;
+      }
+
+      if (_flowController.isCompleted) {
         _step = _ConversationPracticeStep.completed;
         return;
       }
 
-      _currentTurnIndex = nextIndex;
-      final nextTurn = _currentTurn;
+      final nextTurn = _flowController.currentTurn;
+
+      if (nextTurn == null) {
+        _errorMessage = "No se pudo encontrar el siguiente turno.";
+        return;
+      }
+
+      _currentTurnIndex = widget.conversation.turns.indexWhere(
+        (turn) => turn.id == nextTurn.id,
+      );
+
       _selectAvailableLocale(nextTurn);
       _step = _initialStep(nextTurn);
       _errorMessage = null;
@@ -427,16 +479,22 @@ class _LessonConversationCardState extends State<LessonConversationCard> {
       }
 
       setState(() {
-        _currentTurnIndex = 0;
+        _flowController.reset();
+
+        final initialTurn = _flowController.currentTurn;
+
         _recordingPath = null;
         _hasReviewedRecording = false;
 
-        if (widget.conversation.turns.isEmpty) {
+        if (initialTurn == null) {
+          _currentTurnIndex = 0;
           _step = _ConversationPracticeStep.completed;
         } else {
-          final firstTurn = widget.conversation.turns.first;
-          _selectAvailableLocale(firstTurn);
-          _step = _initialStep(firstTurn);
+          _currentTurnIndex = widget.conversation.turns.indexWhere(
+            (turn) => turn.id == initialTurn.id,
+          );
+          _selectAvailableLocale(initialTurn);
+          _step = _initialStep(initialTurn);
         }
       });
     } catch (_) {
@@ -540,29 +598,86 @@ class _LessonConversationCardState extends State<LessonConversationCard> {
     );
   }
 
+  Widget _buildChoiceSelector() {
+    final canSelect =
+        !_isBusy &&
+        _activePlaybackId == null &&
+        _activeRecordingId == null &&
+        _step == _ConversationPracticeStep.prepareLearner;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          "Elige la respuesta que quieres practicar:",
+          style: Theme.of(context).textTheme.titleSmall,
+        ),
+        const SizedBox(height: 10),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: _currentTurn.choices
+              .map(
+                (choice) => ChoiceChip(
+                  label: Text(choice.en),
+                  selected: _flowController.selectedChoice?.id == choice.id,
+                  onSelected: canSelect ? (_) => _selectChoice(choice) : null,
+                ),
+              )
+              .toList(),
+        ),
+      ],
+    );
+  }
+
   Widget _buildLearnerControls() {
+    final hasChoices = _currentTurn.hasChoices;
+
+    if (hasChoices && _flowController.selectedChoice == null) {
+      return _buildChoiceSelector();
+    }
+
+    final choiceSelector = hasChoices
+        ? <Widget>[_buildChoiceSelector(), const SizedBox(height: 14)]
+        : const <Widget>[];
+
     if (_step == _ConversationPracticeStep.prepareLearner) {
-      return FilledButton.icon(
-        onPressed:
-            !_isBusy && _activePlaybackId == null && _activeRecordingId == null
-            ? _startRecording
-            : null,
-        icon: const Icon(Icons.mic_none),
-        label: const Text('Grabar mi respuesta'),
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          ...choiceSelector,
+          FilledButton.icon(
+            onPressed:
+                !_isBusy &&
+                    _activePlaybackId == null &&
+                    _activeRecordingId == null
+                ? _startRecording
+                : null,
+            icon: const Icon(Icons.mic_none),
+            label: const Text('Grabar mi respuesta'),
+          ),
+        ],
       );
     }
 
     if (_step == _ConversationPracticeStep.recordLearner && _isRecording) {
-      return FilledButton.icon(
-        onPressed: _isBusy ? null : _stopRecording,
-        icon: const Icon(Icons.stop_circle_outlined),
-        label: const Text('Detener grabación'),
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          ...choiceSelector,
+          FilledButton.icon(
+            onPressed: _isBusy ? null : _stopRecording,
+            icon: const Icon(Icons.stop_circle_outlined),
+            label: const Text('Detener grabación'),
+          ),
+        ],
       );
     }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        ...choiceSelector,
         Wrap(
           spacing: 8,
           runSpacing: 8,
@@ -629,7 +744,9 @@ class _LessonConversationCardState extends State<LessonConversationCard> {
           ),
           const SizedBox(height: 4),
           Text(
-            'Has escuchado y respondido todos los turnos.',
+            widget.conversation.mode == 'branching'
+                ? 'Has completado la ruta conversacional elegida.'
+                : 'Has escuchado y respondido todos los turnos.',
             textAlign: TextAlign.center,
             style: TextStyle(color: colorScheme.onPrimaryContainer),
           ),
@@ -707,16 +824,21 @@ class _LessonConversationCardState extends State<LessonConversationCard> {
               _buildCompletedState(colorScheme)
             else ...[
               Text(
-                'Turno ${_currentTurnIndex + 1} de '
-                '${widget.conversation.turns.length}',
+                widget.conversation.mode == "branching"
+                    ? "Turno ${_flowController.visitedTurnIds.length} de la ruta"
+                    : "Turno ${_currentTurnIndex + 1} de "
+                          "${widget.conversation.turns.length}",
                 style: Theme.of(context).textTheme.labelLarge,
               ),
-              const SizedBox(height: 8),
-              LinearProgressIndicator(
-                value:
-                    (_currentTurnIndex + 1) / widget.conversation.turns.length,
-                borderRadius: BorderRadius.circular(999),
-              ),
+              if (widget.conversation.mode != "branching") ...[
+                const SizedBox(height: 8),
+                LinearProgressIndicator(
+                  value:
+                      (_currentTurnIndex + 1) /
+                      widget.conversation.turns.length,
+                  borderRadius: BorderRadius.circular(999),
+                ),
+              ],
               const SizedBox(height: 20),
               Container(
                 width: double.infinity,
@@ -748,14 +870,15 @@ class _LessonConversationCardState extends State<LessonConversationCard> {
                     ),
                     const SizedBox(height: 12),
                     Text(
-                      _currentTurn.en,
+                      _currentTurn.isLearner ? _learnerText : _currentTurn.en,
                       style: Theme.of(context).textTheme.titleMedium?.copyWith(
                         fontWeight: FontWeight.w600,
                       ),
                     ),
-                    if (_currentTurn.isLearner && _currentTurn.es != null) ...[
+                    if (_currentTurn.isLearner &&
+                        _learnerTranslation != null) ...[
                       const SizedBox(height: 6),
-                      Text(_currentTurn.es!),
+                      Text(_learnerTranslation!),
                     ],
                   ],
                 ),

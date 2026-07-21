@@ -128,7 +128,7 @@ class _LessonDetailCardState extends State<LessonDetailCard> {
           ),
           if (lesson.conversations.isNotEmpty)
             LessonContentSection(
-              title: 'Conversación guiada',
+              title: 'Práctica conversacional',
               child: Column(
                 children: lesson.conversations
                     .map(

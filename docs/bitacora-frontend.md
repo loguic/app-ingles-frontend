@@ -1179,3 +1179,125 @@ Incorporar una primera práctica conversacional guiada y escalable que permita e
 - `assets/audio/a1_u1_l1_c1_t1_uk.wav`
 - `assets/audio/a1_u1_l1_c1_t3_us.wav`
 - `assets/audio/a1_u1_l1_c1_t3_uk.wav`
+
+## B100 — Práctica conversacional ramificada
+
+Estado: implementación, validación automatizada y validación manual completadas; pendiente cierre Git/GitHub.
+
+### Objetivo
+
+Ampliar la práctica conversacional para permitir respuestas alternativas y recorridos ramificados, conservando la compatibilidad con las conversaciones guiadas de B99 y evitando mezclar la navegación del grafo con la gestión de audio y presentación.
+
+### Contrato conversacional
+
+- Se añadió `ConversationChoice` con:
+  - identificador estable;
+  - texto en inglés;
+  - traducción opcional;
+  - pronunciaciones regionales opcionales;
+  - `nextTurnId` opcional.
+- `ConversationTurn` admite ahora:
+  - `nextTurnId`;
+  - una lista opcional de `choices`.
+- `Conversation` admite:
+  - `startTurnId`;
+  - resolución de turnos mediante `turnById`;
+  - resolución del turno inicial mediante `initialTurn`.
+- Las conversaciones guiadas antiguas siguen iniciándose en el primer turno y mantienen el avance lineal.
+
+### Controlador de navegación
+
+- Se creó `ConversationFlowController`.
+- El controlador mantiene:
+  - turno actual;
+  - respuesta seleccionada;
+  - historial de turnos recorridos;
+  - estado de finalización.
+- La navegación admite:
+  - avance lineal para `guided`;
+  - transición mediante `nextTurnId`;
+  - selección obligatoria en turnos con alternativas;
+  - seguimiento del destino asociado a la respuesta elegida;
+  - finalización de rutas;
+  - reinicio desde `startTurnId`.
+- La navegación del grafo queda separada del audio y de la interfaz Flutter.
+
+### Integración visual
+
+- `LessonConversationCard` utiliza el controlador para avanzar y reiniciar.
+- Los turnos ramificados muestran respuestas alternativas mediante `ChoiceChip`.
+- El estudiante debe seleccionar una respuesta antes de grabar.
+- El texto y la traducción mostrados corresponden a la opción elegida.
+- El flujo conserva:
+  - grabación;
+  - reproducción de la propia voz;
+  - obligación de escuchar la grabación;
+  - avance posterior;
+  - limpieza del archivo temporal.
+- Solo se recorre la rama elegida.
+- El reinicio limpia la selección anterior y vuelve al turno inicial declarado.
+- Las conversaciones guiadas mantienen su comportamiento de B99.
+- La sección se renombró como `Práctica conversacional`.
+- Las rutas ramificadas muestran el número de turnos recorridos sin compararlo con los turnos de ramas no elegidas.
+- El mensaje final distingue entre conversación guiada y ruta ramificada.
+
+### Pruebas automatizadas
+
+- `lesson_conversation_model_test.dart` valida:
+  - conversaciones guiadas;
+  - conversaciones ramificadas;
+  - `startTurnId`;
+  - `nextTurnId`;
+  - respuestas alternativas;
+  - compatibilidad con lecciones antiguas.
+- `conversation_flow_controller_test.dart` valida:
+  - inicio;
+  - avance guiado;
+  - finalización;
+  - reinicio;
+  - selección obligatoria;
+  - seguimiento exclusivo de la rama elegida.
+- `lesson_conversation_card_test.dart` valida:
+  - recorrido guiado completo;
+  - selección visual de respuesta;
+  - grabación y revisión;
+  - reacción correspondiente a la rama elegida;
+  - exclusión de la rama no seleccionada;
+  - finalización;
+  - reinicio desde el turno inicial.
+
+### Validaciones técnicas
+
+- `flutter analyze` → `No issues found`.
+- Suite completa `flutter test` → 18 pruebas superadas.
+- `git diff --check` → sin salida ni errores.
+- Commit de base estable:
+  - `da223f6`;
+  - `B100 añadir contrato y controlador conversacional`.
+
+### Validación manual
+
+- El backend respondió correctamente en el puerto 8001.
+- La conversación guiada de B99 se completó y reinició correctamente.
+- Se validaron correctamente las dos rutas ramificadas.
+- Cada respuesta condujo únicamente a la reacción correspondiente.
+- La reproducción de la voz siguió siendo obligatoria antes de avanzar.
+- La finalización mostró el mensaje específico de la ruta elegida.
+- El reinicio volvió al turno inicial y limpió la selección anterior.
+- No se detectaron errores visuales ni excepciones en la terminal.
+
+### Archivos principales
+
+- `lib/models/lesson.dart`
+- `lib/controllers/conversation_flow_controller.dart`
+- `lib/widgets/lesson_conversation_card.dart`
+- `lib/widgets/lesson_detail_card.dart`
+- `test/lesson_conversation_model_test.dart`
+- `test/conversation_flow_controller_test.dart`
+- `test/lesson_conversation_card_test.dart`
+
+### Pendiente para cerrar B100
+
+- commit de integración y documentación;
+- push a GitHub;
+- confirmación de Git limpio.

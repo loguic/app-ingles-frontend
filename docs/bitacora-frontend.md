@@ -1354,7 +1354,8 @@ Fecha: 2026-07-21
 - `test/conversation_flow_controller_test.dart`
 - `test/lesson_conversation_card_test.dart`
 
-### Pendiente para cerrar B101
+### Cierre de B101
 
-- commit y push del frontend;
-- confirmación de Git limpio.
+- Commit principal: `dd8fc4c` — `B101 persistir progreso conversacional`.
+- Push completado a `origin/master`.
+- Repositorio confirmado limpio y sincronizado después del commit principal.

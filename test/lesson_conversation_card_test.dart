@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:app_ingles/models/lesson.dart';
+import 'package:app_ingles/services/api_service.dart';
 import 'package:app_ingles/services/pronunciation_audio_service.dart';
 import 'package:app_ingles/widgets/lesson_conversation_card.dart';
 import 'package:flutter/material.dart';
@@ -76,6 +77,56 @@ class FakeConversationAudioController implements PronunciationAudioController {
   Future<void> dispose() async {
     await _playback.close();
     await _recording.close();
+  }
+}
+
+/// Simulates successful persistence without network access.
+/// Simula persistencia correcta sin acceder a la red.
+class FakeConversationApiService extends ApiService {
+  FakeConversationApiService({
+    this.saveResult = true,
+    this.throwOnSave = false,
+  });
+
+  final bool saveResult;
+  final bool throwOnSave;
+
+  int saveCallCount = 0;
+  String? lastUserId;
+  String? lastLevelId;
+  String? lastUnitId;
+  String? lastLessonId;
+  String? lastConversationId;
+  String? lastMode;
+  List<String>? lastVisitedTurnIds;
+  List<String>? lastSelectedChoiceIds;
+
+  @override
+  Future<bool> saveConversationAttempt({
+    required String userId,
+    required String levelId,
+    required String unitId,
+    required String lessonId,
+    required String conversationId,
+    required String mode,
+    required List<String> visitedTurnIds,
+    required List<String> selectedChoiceIds,
+  }) async {
+    saveCallCount += 1;
+    lastUserId = userId;
+    lastLevelId = levelId;
+    lastUnitId = unitId;
+    lastLessonId = lessonId;
+    lastConversationId = conversationId;
+    lastMode = mode;
+    lastVisitedTurnIds = List<String>.from(visitedTurnIds);
+    lastSelectedChoiceIds = List<String>.from(selectedChoiceIds);
+
+    if (throwOnSave) {
+      throw Exception("Simulated network failure");
+    }
+
+    return saveResult;
   }
 }
 
@@ -159,6 +210,7 @@ const branchingConversation = Conversation(
 void main() {
   testWidgets('completes and restarts a guided conversation', (tester) async {
     final audioController = FakeConversationAudioController();
+    final apiService = FakeConversationApiService();
     addTearDown(audioController.dispose);
 
     await tester.pumpWidget(
@@ -170,7 +222,12 @@ void main() {
           body: SingleChildScrollView(
             child: LessonConversationCard(
               conversation: conversation,
+              levelId: "A1",
+              unitId: "a1-u1",
+              lessonId: "a1-u1-l1",
+              userId: "test-user-b101",
               audioService: audioController,
+              apiService: apiService,
             ),
           ),
         ),
@@ -207,7 +264,21 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Conversación completada'), findsOneWidget);
+    expect(find.text('Progreso conversacional guardado.'), findsOneWidget);
     expect(find.text('Repetir conversación'), findsOneWidget);
+    expect(apiService.saveCallCount, 1);
+    expect(apiService.lastUserId, "test-user-b101");
+    expect(apiService.lastLevelId, "A1");
+    expect(apiService.lastUnitId, "a1-u1");
+    expect(apiService.lastLessonId, "a1-u1-l1");
+    expect(apiService.lastConversationId, "conversation-test");
+    expect(apiService.lastMode, "guided");
+    expect(apiService.lastVisitedTurnIds, ["partner-turn", "learner-turn"]);
+    expect(apiService.lastSelectedChoiceIds, isEmpty);
+
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(apiService.saveCallCount, 1);
 
     await tester.tap(find.text('Repetir conversación'));
     await tester.pumpAndSettle();
@@ -215,10 +286,35 @@ void main() {
     expect(find.text('Turno 1 de 2'), findsOneWidget);
     expect(find.text('Escuchar al interlocutor'), findsOneWidget);
     expect(find.text('Conversación completada'), findsNothing);
+
+    await tester.tap(find.text('Escuchar al interlocutor'));
+    await tester.pumpAndSettle();
+    audioController.completePlayback();
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Entendí, continuar'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Grabar mi respuesta'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Detener grabación'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Reproducir mi voz'));
+    await tester.pumpAndSettle();
+    audioController.completePlayback();
+    await tester.pumpAndSettle();
+
+    await tester.ensureVisible(find.text('Avanzar al siguiente turno'));
+    await tester.tap(find.text('Avanzar al siguiente turno'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Conversación completada'), findsOneWidget);
+    expect(find.text('Progreso conversacional guardado.'), findsOneWidget);
+    expect(apiService.saveCallCount, 2);
   });
 
   testWidgets("follows the selected conversation branch", (tester) async {
     final audioController = FakeConversationAudioController();
+    final apiService = FakeConversationApiService();
     addTearDown(audioController.dispose);
 
     await tester.pumpWidget(
@@ -227,7 +323,12 @@ void main() {
           body: SingleChildScrollView(
             child: LessonConversationCard(
               conversation: branchingConversation,
+              levelId: "A1",
+              unitId: "a1-u1",
+              lessonId: "a1-u1-l1",
+              userId: "test-user-b101",
               audioService: audioController,
+              apiService: apiService,
             ),
           ),
         ),
@@ -275,7 +376,21 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text("Conversación completada"), findsOneWidget);
+    expect(find.text("Progreso conversacional guardado."), findsOneWidget);
     expect(find.text("Repetir conversación"), findsOneWidget);
+    expect(apiService.saveCallCount, 1);
+    expect(apiService.lastUserId, "test-user-b101");
+    expect(apiService.lastLevelId, "A1");
+    expect(apiService.lastUnitId, "a1-u1");
+    expect(apiService.lastLessonId, "a1-u1-l1");
+    expect(apiService.lastConversationId, "branching-conversation-test");
+    expect(apiService.lastMode, "branching");
+    expect(apiService.lastVisitedTurnIds, [
+      "partner-start",
+      "learner-choice",
+      "partner-tired",
+    ]);
+    expect(apiService.lastSelectedChoiceIds, ["choice-tired"]);
 
     await tester.tap(find.text("Repetir conversación"));
     await tester.pumpAndSettle();
@@ -283,5 +398,66 @@ void main() {
     expect(find.text("Hello. How are you?"), findsOneWidget);
     expect(find.text("Conversación completada"), findsNothing);
     expect(find.text("Estoy cansado hoy."), findsNothing);
+  });
+  testWidgets("keeps completion available when persistence fails", (
+    tester,
+  ) async {
+    final audioController = FakeConversationAudioController();
+    final apiService = FakeConversationApiService(throwOnSave: true);
+    addTearDown(audioController.dispose);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SingleChildScrollView(
+            child: LessonConversationCard(
+              conversation: conversation,
+              levelId: "A1",
+              unitId: "a1-u1",
+              lessonId: "a1-u1-l1",
+              userId: "test-user-b101",
+              audioService: audioController,
+              apiService: apiService,
+            ),
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text("Escuchar al interlocutor"));
+    await tester.pumpAndSettle();
+    audioController.completePlayback();
+    await tester.pumpAndSettle();
+    await tester.tap(find.text("Entendí, continuar"));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text("Grabar mi respuesta"));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text("Detener grabación"));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text("Reproducir mi voz"));
+    await tester.pumpAndSettle();
+    audioController.completePlayback();
+    await tester.pumpAndSettle();
+
+    await tester.ensureVisible(find.text("Avanzar al siguiente turno"));
+    await tester.tap(find.text("Avanzar al siguiente turno"));
+    await tester.pumpAndSettle();
+
+    expect(find.text("Conversación completada"), findsOneWidget);
+    expect(
+      find.text(
+        "La conversación terminó, pero no se pudo guardar el progreso.",
+      ),
+      findsOneWidget,
+    );
+    expect(apiService.saveCallCount, 1);
+    expect(find.text("Repetir conversación"), findsOneWidget);
+
+    await tester.tap(find.text("Repetir conversación"));
+    await tester.pumpAndSettle();
+
+    expect(find.text("Turno 1 de 2"), findsOneWidget);
+    expect(find.text("Conversación completada"), findsNothing);
   });
 }

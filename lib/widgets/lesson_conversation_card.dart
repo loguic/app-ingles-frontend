@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../controllers/conversation_flow_controller.dart';
 import '../models/lesson.dart';
+import '../services/api_service.dart';
 import '../services/pronunciation_audio_service.dart';
 
 /// Represents the local stage of one guided conversation.
@@ -17,23 +18,40 @@ enum _ConversationPracticeStep {
   completed,
 }
 
-/// Runs one guided conversation without persistence or automatic evaluation.
-/// Ejecuta una conversación guiada sin persistencia ni evaluación automática.
+/// Runs one conversation and persists each completed attempt.
+/// Ejecuta una conversación y persiste cada intento completado.
 class LessonConversationCard extends StatefulWidget {
   const LessonConversationCard({
     required this.conversation,
+    required this.levelId,
+    required this.unitId,
+    required this.lessonId,
+    required this.userId,
     required this.audioService,
+    this.apiService,
     super.key,
   });
 
   final Conversation conversation;
+  final String levelId;
+  final String unitId;
+  final String lessonId;
+  final String userId;
   final PronunciationAudioController audioService;
+
+  /// Optional API service used to keep widget tests independent from the backend.
+  /// Servicio API opcional para mantener las pruebas separadas del backend.
+  final ApiService? apiService;
 
   @override
   State<LessonConversationCard> createState() => _LessonConversationCardState();
 }
 
 class _LessonConversationCardState extends State<LessonConversationCard> {
+  static final ApiService _defaultApiService = ApiService();
+
+  ApiService get _apiService => widget.apiService ?? _defaultApiService;
+
   StreamSubscription<String?>? _playbackSubscription;
   StreamSubscription<String?>? _recordingSubscription;
 
@@ -46,6 +64,10 @@ class _LessonConversationCardState extends State<LessonConversationCard> {
   String? _errorMessage;
   bool _isBusy = false;
   bool _hasReviewedRecording = false;
+  bool _isSavingAttempt = false;
+  bool _attemptSaved = false;
+  String? _persistenceMessage;
+  int _attemptSequence = 0;
   late _ConversationPracticeStep _step;
 
   ConversationTurn get _currentTurn =>
@@ -419,7 +441,58 @@ class _LessonConversationCardState extends State<LessonConversationCard> {
     }
   }
 
+  Future<void> _saveCompletedAttempt(int attemptSequence) async {
+    if (!mounted || _isSavingAttempt || _attemptSaved) {
+      return;
+    }
+
+    setState(() {
+      _isSavingAttempt = true;
+      _persistenceMessage = "Guardando progreso conversacional...";
+    });
+
+    try {
+      final saved = await _apiService.saveConversationAttempt(
+        userId: widget.userId,
+        levelId: widget.levelId,
+        unitId: widget.unitId,
+        lessonId: widget.lessonId,
+        conversationId: widget.conversation.id,
+        mode: widget.conversation.mode,
+        visitedTurnIds: _flowController.visitedTurnIds,
+        selectedChoiceIds: _flowController.selectedChoiceIds,
+      );
+
+      if (!mounted || attemptSequence != _attemptSequence) {
+        return;
+      }
+
+      setState(() {
+        _attemptSaved = saved;
+        _persistenceMessage = saved
+            ? "Progreso conversacional guardado."
+            : "La conversación terminó, pero no se pudo guardar el progreso.";
+      });
+    } catch (_) {
+      if (!mounted || attemptSequence != _attemptSequence) {
+        return;
+      }
+
+      setState(() {
+        _persistenceMessage =
+            "La conversación terminó, pero no se pudo guardar el progreso.";
+      });
+    } finally {
+      if (mounted && attemptSequence == _attemptSequence) {
+        setState(() {
+          _isSavingAttempt = false;
+        });
+      }
+    }
+  }
+
   void _moveToNextTurn({bool updateState = true}) {
+    var completedNow = false;
     void move() {
       final advanced = _flowController.advance();
 
@@ -430,6 +503,7 @@ class _LessonConversationCardState extends State<LessonConversationCard> {
 
       if (_flowController.isCompleted) {
         _step = _ConversationPracticeStep.completed;
+        completedNow = true;
         return;
       }
 
@@ -453,6 +527,10 @@ class _LessonConversationCardState extends State<LessonConversationCard> {
       setState(move);
     } else {
       move();
+    }
+
+    if (completedNow) {
+      unawaited(_saveCompletedAttempt(_attemptSequence));
     }
   }
 
@@ -485,6 +563,10 @@ class _LessonConversationCardState extends State<LessonConversationCard> {
 
         _recordingPath = null;
         _hasReviewedRecording = false;
+        _attemptSequence += 1;
+        _isSavingAttempt = false;
+        _attemptSaved = false;
+        _persistenceMessage = null;
 
         if (initialTurn == null) {
           _currentTurnIndex = 0;
@@ -750,6 +832,29 @@ class _LessonConversationCardState extends State<LessonConversationCard> {
             textAlign: TextAlign.center,
             style: TextStyle(color: colorScheme.onPrimaryContainer),
           ),
+          if (_persistenceMessage != null) ...[
+            const SizedBox(height: 12),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                if (_isSavingAttempt) ...[
+                  const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+                  const SizedBox(width: 8),
+                ],
+                Flexible(
+                  child: Text(
+                    _persistenceMessage!,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(color: colorScheme.onPrimaryContainer),
+                  ),
+                ),
+              ],
+            ),
+          ],
           const SizedBox(height: 16),
           FilledButton.icon(
             onPressed: _isBusy ? null : _restartConversation,

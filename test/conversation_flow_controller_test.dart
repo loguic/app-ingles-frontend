@@ -18,6 +18,7 @@ void main() {
     expect(controller.currentTurnId, "partner-start");
     expect(controller.currentTurn?.id, "partner-start");
     expect(controller.visitedTurnIds, ["partner-start"]);
+    expect(controller.selectedChoiceIds, isEmpty);
     expect(controller.isCompleted, isFalse);
   });
 
@@ -106,5 +107,11 @@ void main() {
       "partner-tired",
     ]);
     expect(controller.visitedTurnIds, isNot(contains("partner-fine")));
+    expect(controller.selectedChoiceIds, ["choice-tired"]);
+
+    controller.reset();
+
+    expect(controller.currentTurnId, "partner-start");
+    expect(controller.selectedChoiceIds, isEmpty);
   });
 }

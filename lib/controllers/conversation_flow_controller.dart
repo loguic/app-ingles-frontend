@@ -10,6 +10,7 @@ class ConversationFlowController {
   final Conversation conversation;
 
   final List<String> _visitedTurnIds = [];
+  final List<String> _selectedChoiceIds = [];
   String? _currentTurnId;
   ConversationChoice? _selectedChoice;
 
@@ -20,6 +21,9 @@ class ConversationFlowController {
   ConversationChoice? get selectedChoice => _selectedChoice;
 
   List<String> get visitedTurnIds => List<String>.unmodifiable(_visitedTurnIds);
+
+  List<String> get selectedChoiceIds =>
+      List<String>.unmodifiable(_selectedChoiceIds);
 
   bool get isCompleted => _currentTurnId == null;
 
@@ -53,6 +57,10 @@ class ConversationFlowController {
 
     if (turn.hasChoices && _selectedChoice == null) {
       return false;
+    }
+
+    if (turn.hasChoices) {
+      _selectedChoiceIds.add(_selectedChoice!.id);
     }
 
     final nextTurnId = _resolveNextTurnId(turn);
@@ -108,6 +116,7 @@ class ConversationFlowController {
     _currentTurnId = initialTurn?.id;
     _selectedChoice = null;
     _visitedTurnIds.clear();
+    _selectedChoiceIds.clear();
 
     if (initialTurn != null) {
       _visitedTurnIds.add(initialTurn.id);

@@ -1296,8 +1296,65 @@ Ampliar la práctica conversacional para permitir respuestas alternativas y reco
 - `test/conversation_flow_controller_test.dart`
 - `test/lesson_conversation_card_test.dart`
 
-### Pendiente para cerrar B100
+### Cierre de B100
 
-- commit de integración y documentación;
-- push a GitHub;
+- Commit base: `da223f6` — `B100 añadir contrato y controlador conversacional`.
+- Commit de integración: `fa94705`.
+- Push completado a `origin/master`.
+- Repositorio confirmado limpio al cerrar B100.
+
+## B101 — Persistencia del progreso conversacional
+
+Fecha: 2026-07-21
+
+### Objetivo
+
+- Persistir cada conversación completada como un intento independiente del progreso de ejercicios.
+- No almacenar grabaciones ni archivos de audio.
+- Permitir que la conversación finalice localmente aunque falle la red.
+
+### Implementación frontend
+
+- `ConversationFlowController` conserva los turnos recorridos y las opciones elegidas.
+- `ApiService.saveConversationAttempt(...)` envía el intento a `POST /api/v1/conversation-attempts`.
+- `LessonConversationCard` recibe usuario, nivel, unidad y lección.
+- El guardado se ejecuta automáticamente al completar la conversación.
+- Las reconstrucciones de la interfaz no generan guardados duplicados.
+- Repetir y completar nuevamente crea un intento independiente.
+- El estado final informa si el intento se guardó o si falló la persistencia.
+- Un fallo de red no bloquea la finalización ni el reinicio local.
+
+### Pruebas automatizadas
+
+- Historial y limpieza de opciones en el controlador.
+- Persistencia correcta de conversaciones guiadas.
+- Persistencia de la ruta y opción elegidas en conversaciones ramificadas.
+- Ausencia de duplicados durante reconstrucciones.
+- Creación de un segundo intento después de repetir.
+- Fallo de red simulado sin bloquear la conversación.
+- `flutter analyze` → sin problemas.
+- 6 pruebas específicas de B101 superadas.
+- Suite completa frontend → 19 pruebas superadas.
+- `git diff --check` → sin errores.
+
+### Validación manual
+
+- Backend disponible en `http://127.0.0.1:8001`.
+- Intentos guiados persistidos independientemente para `demo-user`.
+- Intento ramificado `a1-u1-l1-c2` persistido con la ruta recorrida.
+- Opción `a1-u1-l1-c2-choice-fine` almacenada correctamente.
+- La interfaz mostró `Progreso conversacional guardado.`.
+
+### Archivos principales
+
+- `lib/controllers/conversation_flow_controller.dart`
+- `lib/services/api_service.dart`
+- `lib/widgets/lesson_conversation_card.dart`
+- `lib/widgets/lesson_detail_card.dart`
+- `test/conversation_flow_controller_test.dart`
+- `test/lesson_conversation_card_test.dart`
+
+### Pendiente para cerrar B101
+
+- commit y push del frontend;
 - confirmación de Git limpio.

@@ -141,7 +141,39 @@ class ApiService {
     return response.statusCode == 200;
   }
 
-    /// Gets the saved progress records for one user.
+  /// Saves one completed conversation attempt in the backend.
+  /// Guarda un intento conversacional completado en el backend.
+  Future<bool> saveConversationAttempt({
+    required String userId,
+    required String levelId,
+    required String unitId,
+    required String lessonId,
+    required String conversationId,
+    required String mode,
+    required List<String> visitedTurnIds,
+    required List<String> selectedChoiceIds,
+  }) async {
+    final uri = Uri.parse('$baseUrl/conversation-attempts');
+
+    final response = await http.post(
+      uri,
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({
+        'user_id': userId,
+        'level_id': levelId,
+        'unit_id': unitId,
+        'lesson_id': lessonId,
+        'conversation_id': conversationId,
+        'mode': mode,
+        'visited_turn_ids': visitedTurnIds,
+        'selected_choice_ids': selectedChoiceIds,
+      }),
+    );
+
+    return response.statusCode == 200;
+  }
+
+  /// Gets the saved progress records for one user.
   /// Obtiene los registros de progreso guardados de un usuario.
   Future<List<ProgressRecord>> getProgress(String userId) async {
     final uri = Uri.parse('$baseUrl/progress/$userId');

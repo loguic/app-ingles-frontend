@@ -137,7 +137,12 @@ class _LessonDetailCardState extends State<LessonDetailCard> {
                         child: LessonConversationCard(
                           key: ValueKey('conversation:${conversation.id}'),
                           conversation: conversation,
+                          levelId: widget.levelId,
+                          unitId: widget.unitId,
+                          lessonId: lesson.id,
+                          userId: "demo-user",
                           audioService: widget.pronunciationAudioService,
+                          apiService: widget.exerciseApiService,
                         ),
                       ),
                     )

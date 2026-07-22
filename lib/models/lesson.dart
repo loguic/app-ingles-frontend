@@ -32,11 +32,13 @@ class LessonPronunciation {
 /// Representa una frase de ejemplo dentro de una lección.
 class LessonExample {
   const LessonExample({
+    required this.id,
     required this.en,
     required this.es,
     this.pronunciations = const [],
   });
 
+  final String id;
   final String en;
   final String es;
 
@@ -48,6 +50,7 @@ class LessonExample {
     final pronunciations = json['pronunciations'] as List<dynamic>? ?? [];
 
     return LessonExample(
+      id: json['id'] as String,
       en: json['en'] as String,
       es: json['es'] as String,
       pronunciations: pronunciations

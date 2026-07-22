@@ -101,10 +101,7 @@ class _LessonDetailCardState extends State<LessonDetailCard> {
           LessonContentSection(
             title: 'Ejemplos',
             child: Column(
-              children: lesson.examples.asMap().entries.map((entry) {
-                final exampleIndex = entry.key;
-                final example = entry.value;
-
+              children: lesson.examples.map((example) {
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -117,7 +114,7 @@ class _LessonDetailCardState extends State<LessonDetailCard> {
                     // Shares one audio coordinator across the lesson.
                     // Comparte un coordinador de audio en toda la lección.
                     LessonPronunciationControls(
-                      exampleId: '${lesson.id}:example:$exampleIndex',
+                      exampleId: example.id,
                       pronunciations: example.pronunciations,
                       audioService: widget.pronunciationAudioService,
                     ),

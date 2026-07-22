@@ -1421,3 +1421,55 @@ Fecha: 2026-07-22
 - Commit principal: `68e6bec` — `B102 mostrar progreso conversacional`.
 - Push completado a `origin/master`.
 - Repositorio confirmado limpio y sincronizado después del commit principal.
+
+## B103 — Identificadores estables para ejemplos de pronunciación
+
+Fecha: 2026-07-22
+
+### Objetivo
+
+- Adaptar Flutter al contrato backend de identificadores estables para frases de ejemplo.
+- Evitar persistir futuras autoevaluaciones mediante índices que pueden cambiar al reordenar contenido.
+
+### Implementación frontend
+
+- `LessonExample` requiere ahora un campo `id`.
+- `LessonExample.fromJson(...)` interpreta el identificador enviado por el backend.
+- `LessonPronunciationControls` recibe directamente `example.id`.
+- Se eliminó la construcción basada en `${lesson.id}:example:<índice>`.
+- Los identificadores estables actuales son:
+  - `a1-u1-l1-e1`;
+  - `a1-u1-l1-e2`.
+- B103 todavía no persiste autoevaluaciones ni grabaciones.
+
+### Pruebas y validaciones
+
+- Se creó `lesson_example_model_test.dart`.
+- La prueba valida el identificador, textos y pronunciaciones del ejemplo.
+- Pruebas específicas: 2 superadas.
+- Suite completa frontend: 24 pruebas superadas.
+- `flutter analyze`: sin problemas.
+- `git diff --check`: sin errores.
+
+### Validación manual
+
+- El backend real devolvió los dos identificadores estables.
+- Flutter realizó un hot restart sin excepciones.
+- Los ejemplos `Hello, I am John.` y `Goodbye! See you later.` aparecieron correctamente.
+- Las variantes regionales y la reproducción de pronunciación continuaron funcionando.
+- No se detectaron errores visuales ni regresiones.
+
+### Archivos principales
+
+- `lib/models/lesson.dart`
+- `lib/widgets/lesson_detail_card.dart`
+- `test/lesson_example_model_test.dart`
+
+### Cierre de B103
+
+- Validación final: `flutter analyze` sin problemas.
+- Suite completa frontend: 24 pruebas superadas.
+- Revisión de código y seguridad completada sin cambios inesperados ni datos sensibles.
+- Commit principal: `bde6fd7` — `B103 usar identificadores estables en ejemplos`.
+- Push del cambio técnico completado a `origin/master`.
+- Repositorio confirmado limpio y sincronizado después del commit documental.

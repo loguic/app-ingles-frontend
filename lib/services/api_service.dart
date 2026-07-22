@@ -2,7 +2,8 @@ import 'dart:convert';
 import '../models/level.dart';
 import '../models/unit.dart';
 import '../models/lesson.dart';
-import '../models/progress_record.dart';
+import "../models/conversation_attempt_record.dart";
+import "../models/progress_record.dart";
 import 'package:http/http.dart' as http;
 
 /// Service responsible for communicating with the backend API.
@@ -171,6 +172,26 @@ class ApiService {
     );
 
     return response.statusCode == 200;
+  }
+
+  /// Gets the completed conversation attempts for one user.
+  /// Obtiene los intentos conversacionales completados de un usuario.
+  Future<List<ConversationAttemptRecord>> getConversationAttempts(
+    String userId,
+  ) async {
+    final uri = Uri.parse('$baseUrl/conversation-attempts/$userId');
+    final response = await http.get(uri);
+
+    if (response.statusCode != 200) {
+      return [];
+    }
+
+    final data = jsonDecode(response.body) as List<dynamic>;
+
+    return data
+        .cast<Map<String, dynamic>>()
+        .map(ConversationAttemptRecord.fromJson)
+        .toList();
   }
 
   /// Gets the saved progress records for one user.

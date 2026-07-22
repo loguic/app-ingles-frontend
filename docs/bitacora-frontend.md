@@ -1359,3 +1359,63 @@ Fecha: 2026-07-21
 - Commit principal: `dd8fc4c` — `B101 persistir progreso conversacional`.
 - Push completado a `origin/master`.
 - Repositorio confirmado limpio y sincronizado después del commit principal.
+
+## B102 — Historial y resumen del progreso conversacional
+
+Fecha: 2026-07-22
+
+### Objetivo
+
+- Permitir que el usuario consulte desde la aplicación los intentos conversacionales persistidos en B101.
+- Mantener el progreso conversacional separado de las estadísticas de ejercicios.
+
+### Implementación frontend
+
+- Se creó `ConversationAttemptRecord` para interpretar el contrato del backend.
+- `ApiService.getConversationAttempts(...)` consulta `GET /api/v1/conversation-attempts/{user_id}`.
+- Se creó `ConversationHistoryCard`.
+- La tarjeta muestra:
+  - total de intentos completados;
+  - cantidad de conversaciones guiadas;
+  - cantidad de conversaciones ramificadas;
+  - fecha y hora de la práctica más reciente.
+- Se controlan los estados de carga, historial vacío y fallo de consulta.
+- `HomeScreen` actualiza el resumen al regresar de una lección.
+- No se añadió ninguna dependencia nueva para formatear fechas.
+
+### Pruebas automatizadas
+
+- Conversión del contrato JSON y fecha con zona horaria.
+- Resumen de intentos guiados y ramificados.
+- Estado de historial vacío.
+- Fallo de consulta controlado.
+- Integración en la pantalla principal.
+- 5 pruebas específicas de B102 superadas.
+- Suite completa frontend: 23 pruebas superadas.
+- `flutter analyze`: sin problemas.
+- `git diff --check`: sin errores.
+
+### Validación manual
+
+- La tarjeta `Práctica conversacional` apareció correctamente.
+- Datos reales mostrados:
+  - intentos completados: 3;
+  - guiados: 2;
+  - ramificados: 1;
+  - última práctica: 21/07/2026 23:53.
+- No se detectaron errores visuales ni excepciones.
+
+### Archivos principales
+
+- `lib/models/conversation_attempt_record.dart`
+- `lib/services/api_service.dart`
+- `lib/widgets/conversation_history_card.dart`
+- `lib/screens/home_screen.dart`
+- `test/conversation_attempt_record_test.dart`
+- `test/conversation_history_card_test.dart`
+
+### Pendiente para cerrar B102
+
+- validación final;
+- commit y push;
+- confirmación de Git limpio.

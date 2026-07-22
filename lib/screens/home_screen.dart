@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../services/api_service.dart';
+import '../widgets/conversation_history_card.dart';
 import '../widgets/info_card.dart';
 import '../widgets/lesson_list_card.dart';
 import '../widgets/level_selector_card.dart';
@@ -86,6 +87,12 @@ class _HomeScreenState extends State<HomeScreen> {
                 _buildBackendStatus(),
                 const SizedBox(height: 16),
                 ProgressSummaryCard(key: ValueKey(_progressRefreshCounter)),
+                const SizedBox(height: 16),
+                ConversationHistoryCard(
+                  key: ValueKey(
+                    "conversation-history-$_progressRefreshCounter",
+                  ),
+                ),
                 const SizedBox(height: 16),
                 LevelSelectorCard(
                   selectedLevelCode: _selectedLevelCode,

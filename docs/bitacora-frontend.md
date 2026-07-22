@@ -1414,8 +1414,10 @@ Fecha: 2026-07-22
 - `test/conversation_attempt_record_test.dart`
 - `test/conversation_history_card_test.dart`
 
-### Pendiente para cerrar B102
+### Cierre de B102
 
-- validación final;
-- commit y push;
-- confirmación de Git limpio.
+- Validación final: `flutter analyze` sin problemas.
+- Suite completa frontend: 23 pruebas superadas.
+- Commit principal: `68e6bec` — `B102 mostrar progreso conversacional`.
+- Push completado a `origin/master`.
+- Repositorio confirmado limpio y sincronizado después del commit principal.

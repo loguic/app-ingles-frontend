@@ -1733,9 +1733,12 @@ Ninguno de estos estados representa corrección pedagógica.
 - `linux/flutter/generated_plugins.cmake`
 - `windows/flutter/generated_plugins.cmake`
 
-### Estado previo al cierre
+### Cierre de B127
 
 - Reconocimiento técnico real implementado y validado en Linux.
 - El contrato neutral de B126 permanece intacto.
 - El motor todavía no está conectado al flujo conversacional de usuario.
-- Pendiente revisión final, commit, push y confirmación de Git limpio.
+- Commit técnico: `e8734c1` — `B127 implementar reconocimiento real con Sherpa`.
+- Commit documental inicial: `fdbe9fc` — `docs cerrar B127 reconocimiento Sherpa`.
+- Cambios publicados en `origin/master`.
+- Git quedó limpio y sincronizado.

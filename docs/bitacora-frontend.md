@@ -1550,3 +1550,66 @@ Fecha: 2026-07-26
 - B104 no introduce captura, evaluación, dominio, retención ni persistencia de audio.
 - Commit técnico: `c1ace4e` — `B104 revisar producciones personales`.
 - Pendiente únicamente commit documental, push y confirmación final de Git limpio.
+
+## B126 — Contrato neutral de reconocimiento de voz
+
+Fecha: 2026-07-26
+
+### Objetivo
+
+- Crear una frontera técnica independiente entre el audio temporal del estudiante y un futuro motor de reconocimiento de voz.
+- Evitar mezclar reconocimiento técnico con evaluación pedagógica, dominio o retención de Skills.
+- Preparar sustitución futura del motor STT sin acoplar widgets ni contratos pedagógicos a una tecnología concreta.
+
+### Implementación frontend
+
+- Se creó `SpeechRecognitionStatus` con estados `recognized`, `noSpeech` y `failed`.
+- Se creó `SpeechRecognitionRequest` para describir una solicitud sobre un WAV temporal.
+- La solicitud conserva contexto mediante `userId`, `levelId`, `unitId`, `lessonId`, `conversationId`, `turnId` y `promptId` opcional.
+- `languageCode` pertenece al contrato de reconocimiento.
+- `locale` es opcional y no reutiliza artificialmente `LessonPronunciation.locale`.
+- Se creó `SpeechRecognitionResult` con transcripción y palabras reconocidas como resultado técnico.
+- Se creó `SpeechRecognitionController` como interfaz independiente del motor concreto.
+- Una implementación fake demuestra que el controlador puede sustituirse de forma determinista en pruebas.
+
+### Separación de responsabilidades
+
+- `LearnerProduction` representa lo que produjo el estudiante.
+- `SpeechRecognitionResult` representa lo que un reconocedor técnico detectó.
+- El reconocimiento no determina corrección semántica ni fonética.
+- El reconocimiento no genera todavía `EvidenceRecord`.
+- El reconocimiento no declara dominio ni retención de ninguna Skill.
+
+### Límites explícitos de B126
+
+- No se instaló ningún motor o dependencia STT.
+- No se eligió Whisper, Vosk, Coqui, TFLite ni proveedor remoto.
+- No se conectó reconocimiento a `LessonConversationCard`.
+- No se modificó `PronunciationAudioService`.
+- Los WAV continúan siendo estrictamente temporales y conservan la política existente de permisos y eliminación.
+- No se añadió transporte de audio al backend.
+- No se modificó `ApiService`.
+- No se implementó evaluación semántica ni fonética.
+- No se añadieron scores, confianza del motor, dominio o retención.
+- No se publicó ni consumió `content/candidates/`.
+- No se modificaron `production_prompt` ni los contratos pedagógicos.
+
+### Pruebas y validaciones
+
+- `speech_recognition_contract_test.dart` valida el contrato neutral.
+- Se validó la sustitución del motor mediante fake determinista.
+- Pruebas específicas B126: 2 superadas.
+- Suite completa frontend: 31 pruebas superadas.
+- `flutter analyze`: sin problemas.
+- `git diff --check`: sin errores.
+
+### Archivos principales
+
+- `lib/services/speech_recognition_service.dart`
+- `test/speech_recognition_contract_test.dart`
+
+### Estado previo al cierre
+
+- Contrato neutral implementado y validado.
+- No existe todavía integración con un motor STT real.
+- Pendiente revisión final, commit, push y confirmación de Git limpio.

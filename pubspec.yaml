@@ -37,6 +37,7 @@ dependencies:
   http: ^1.6.0
   audioplayers: ^6.7.1
   record: ^6.2.1
+  sherpa_onnx: ^1.13.4
 
 dev_dependencies:
   flutter_test:

@@ -1473,3 +1473,80 @@ Fecha: 2026-07-22
 - Commit principal: `bde6fd7` — `B103 usar identificadores estables en ejemplos`.
 - Push del cambio técnico completado a `origin/master`.
 - Repositorio confirmado limpio y sincronizado después del commit documental.
+
+## B104 — Producciones personales conversacionales
+
+Fecha: 2026-07-26
+
+### Objetivo
+
+- Preparar Flutter para interpretar y revisar producciones personales conversacionales ya persistidas por el backend.
+- Mantener separadas la producción capturada, la evaluación, el dominio, la retención y las Skills.
+- No introducir persistencia de audio ni consumir contenido candidato.
+
+### Implementación frontend
+
+- Se añadió `LearnerProductionPrompt` como contrato opcional de `ConversationTurn`.
+- El contenido activo sin `production_prompt` mantiene compatibilidad.
+- Se añadieron `LearnerProductionRecord` y `ConversationProductionSubmissionRecord`.
+- `ApiService` puede leer `GET /api/v1/conversation-productions/{user_id}`.
+- Se creó `ConversationProductionsCard` para revisar entregas persistidas.
+- La tarjeta se integró en `HomeScreen` como recurso independiente de `ConversationHistoryCard`.
+- Las producciones de texto muestran su contenido.
+- Las producciones de voz se muestran únicamente como registradas; `audio_reference` no se expone ni se reproduce.
+
+### Límites explícitos de B104
+
+- No se implementa `POST /conversation-productions`.
+- No se capturan ni persisten nuevas producciones desde Flutter.
+- No se persisten, suben ni reutilizan los WAV temporales actuales.
+- No se interpreta `audio_reference` como una ruta local reproducible.
+- No se implementa evaluación semántica o fonética.
+- No se calculan puntuaciones, dominio ni retención.
+- No se activa `a1-u1-l1-c3`.
+- No se consume `content/candidates/`.
+- `production_prompt.required` no bloquea todavía el flujo de interfaz.
+
+### Pruebas y validaciones
+
+- `lesson_conversation_model_test.dart` cubre `production_prompt` opcional y compatibilidad existente.
+- `conversation_production_record_test.dart` cubre la deserialización de entregas y producciones persistidas.
+- `conversation_productions_card_test.dart` cubre datos, estado vacío y error controlado.
+- Pruebas específicas B104: 8 superadas.
+- Suite completa frontend: 29 pruebas superadas.
+- `flutter analyze`: sin problemas.
+- `git diff --check`: sin errores.
+
+### Archivos principales
+
+- `lib/models/lesson.dart`
+- `lib/models/conversation_production_record.dart`
+- `lib/services/api_service.dart`
+- `lib/widgets/conversation_productions_card.dart`
+- `lib/screens/home_screen.dart`
+- `test/lesson_conversation_model_test.dart`
+- `test/conversation_production_record_test.dart`
+- `test/conversation_productions_card_test.dart`
+
+### Validación manual
+
+- Backend real ejecutado en `127.0.0.1:8001` y `/api/v1/health` respondió correctamente.
+- `GET /api/v1/conversation-productions/demo-user` devolvió `[]`, coherente con la ausencia de producciones visibles asociadas a contenido activo.
+- Flutter se ejecutó correctamente en Linux desktop.
+- La tarjeta `Producciones personales` apareció en `HomeScreen`.
+- Se mostró correctamente el estado vacío: `Aún no hay producciones personales guardadas.`
+- No se detectaron errores visuales ni excepciones.
+- La composición actual de `HomeScreen` se mantiene como estructura funcional de desarrollo y no constituye el diseño UX definitivo.
+- El rediseño global de Home queda fuera de B104 y deberá abordarse en un bloque independiente.
+
+### Cierre de B104
+
+- Implementación técnica completada.
+- `flutter analyze`: sin problemas.
+- Pruebas específicas B104: 8 superadas.
+- Suite completa frontend: 29 pruebas superadas.
+- `git diff --check`: sin errores.
+- Validación manual contra backend real completada.
+- B104 no introduce captura, evaluación, dominio, retención ni persistencia de audio.
+- Commit técnico: `c1ace4e` — `B104 revisar producciones personales`.
+- Pendiente únicamente commit documental, push y confirmación final de Git limpio.

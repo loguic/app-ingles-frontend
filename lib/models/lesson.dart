@@ -94,6 +94,30 @@ class ConversationChoice {
   }
 }
 
+/// Defines how one learner turn accepts personal production.
+/// Define cómo un turno del estudiante acepta producción personal.
+class LearnerProductionPrompt {
+  const LearnerProductionPrompt({
+    required this.id,
+    required this.acceptedModalities,
+    this.required = true,
+  });
+
+  final String id;
+  final List<String> acceptedModalities;
+  final bool required;
+
+  factory LearnerProductionPrompt.fromJson(Map<String, dynamic> json) {
+    final modalities = json["accepted_modalities"] as List<dynamic>? ?? [];
+
+    return LearnerProductionPrompt(
+      id: json["id"] as String,
+      acceptedModalities: modalities.cast<String>(),
+      required: json["required"] as bool? ?? true,
+    );
+  }
+}
+
 /// Represents one turn inside a conversational activity.
 /// Representa un turno dentro de una actividad conversacional.
 class ConversationTurn {
@@ -103,6 +127,7 @@ class ConversationTurn {
     required this.en,
     this.es,
     this.pronunciations = const [],
+    this.productionPrompt,
     this.nextTurnId,
     this.choices = const [],
   });
@@ -112,6 +137,7 @@ class ConversationTurn {
   final String en;
   final String? es;
   final List<LessonPronunciation> pronunciations;
+  final LearnerProductionPrompt? productionPrompt;
   final String? nextTurnId;
   final List<ConversationChoice> choices;
 
@@ -132,6 +158,11 @@ class ConversationTurn {
           .cast<Map<String, dynamic>>()
           .map(LessonPronunciation.fromJson)
           .toList(),
+      productionPrompt: json["production_prompt"] == null
+          ? null
+          : LearnerProductionPrompt.fromJson(
+              json["production_prompt"] as Map<String, dynamic>,
+            ),
       nextTurnId: json["next_turn_id"] as String?,
       choices: choices
           .cast<Map<String, dynamic>>()

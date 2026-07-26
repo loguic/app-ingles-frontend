@@ -3,6 +3,7 @@ import '../models/level.dart';
 import '../models/unit.dart';
 import '../models/lesson.dart';
 import "../models/conversation_attempt_record.dart";
+import "../models/conversation_production_record.dart";
 import "../models/progress_record.dart";
 import 'package:http/http.dart' as http;
 
@@ -191,6 +192,25 @@ class ApiService {
     return data
         .cast<Map<String, dynamic>>()
         .map(ConversationAttemptRecord.fromJson)
+        .toList();
+  }
+
+  /// Gets the persisted personal productions for one user.
+  /// Obtiene las producciones personales persistidas de un usuario.
+  Future<List<ConversationProductionSubmissionRecord>>
+  getConversationProductions(String userId) async {
+    final uri = Uri.parse('$baseUrl/conversation-productions/$userId');
+    final response = await http.get(uri);
+
+    if (response.statusCode != 200) {
+      return [];
+    }
+
+    final data = jsonDecode(response.body) as List<dynamic>;
+
+    return data
+        .cast<Map<String, dynamic>>()
+        .map(ConversationProductionSubmissionRecord.fromJson)
         .toList();
   }
 

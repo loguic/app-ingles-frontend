@@ -147,4 +147,39 @@ void main() {
     expect(lesson.examples, isEmpty);
     expect(lesson.exercises, isEmpty);
   });
+  test('parses optional learner production prompt', () {
+    final conversation = Conversation.fromJson({
+      'id': 'a1-u1-l1-c3',
+      'title': 'Personal introduction',
+      'turns': [
+        {
+          'id': 'partner-start',
+          'speaker': 'partner',
+          'en': 'Tell me about yourself.',
+        },
+        {
+          'id': 'learner-production',
+          'speaker': 'learner',
+          'en': 'Introduce yourself.',
+          'production_prompt': {
+            'id': 'a1-u1-l1-c3-p1',
+            'accepted_modalities': ['text', 'voice'],
+            'required': true,
+          },
+        },
+      ],
+    });
+
+    expect(conversation.turns.first.productionPrompt, isNull);
+
+    final learnerTurn = conversation.turns.last;
+    expect(learnerTurn.productionPrompt, isNotNull);
+    expect(learnerTurn.productionPrompt!.id, 'a1-u1-l1-c3-p1');
+    expect(
+      learnerTurn.productionPrompt!.acceptedModalities,
+      ['text', 'voice'],
+    );
+    expect(learnerTurn.productionPrompt!.required, isTrue);
+  });
+
 }

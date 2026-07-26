@@ -1608,8 +1608,134 @@ Fecha: 2026-07-26
 - `lib/services/speech_recognition_service.dart`
 - `test/speech_recognition_contract_test.dart`
 
-### Estado previo al cierre
+### Cierre de B126
 
 - Contrato neutral implementado y validado.
-- No existe todavía integración con un motor STT real.
+- No se integró todavía ningún motor STT real dentro de B126.
+- Commit técnico: `25c3caf` — `B126 definir contrato neutral de reconocimiento`.
+- Commit documental: `d7e8913` — `docs cerrar B126 reconocimiento neutral`.
+- Cambios publicados en `origin/master`.
+- Git quedó limpio y sincronizado.
+
+## B127 — Reconocimiento técnico real con Sherpa-ONNX
+
+Fecha: 2026-07-27
+
+### Objetivo
+
+- Implementar el primer motor real detrás de `SpeechRecognitionController` sin modificar el contrato neutral creado en B126.
+- Validar reconocimiento offline sobre los WAV existentes de la aplicación.
+- Mantener reconocimiento técnico separado de evaluación semántica, evaluación fonética, evidencia pedagógica y dominio de Skills.
+
+### Motor seleccionado y validado
+
+- Se incorporó `sherpa_onnx 1.13.4`.
+- Flutter resolvió también los paquetes nativos de plataforma, incluido `sherpa_onnx_linux 1.13.4`.
+- El entorno validado es Linux `x86_64`.
+- Se confirmó la presencia de `libsherpa-onnx-c-api.so`, `libsherpa-onnx-cxx-api.so` y `libonnxruntime.so`.
+- Se utilizó Moonshine v1 `sherpa-onnx-moonshine-tiny-en-int8` como primer modelo de reconocimiento offline en inglés.
+- El modelo probado incluye `preprocess.onnx`, `encode.int8.onnx`, `uncached_decode.int8.onnx`, `cached_decode.int8.onnx` y `tokens.txt`.
+- El artefacto descargado incluye licencia MIT de Useful Sensors.
+
+### Política de modelos
+
+- El modelo Moonshine no se almacena en el repositorio Git.
+- Durante B127 se mantuvo en:
+  `~/.local/share/app-ingles/models/sherpa-onnx-moonshine-tiny-en-int8`
+- Esta ubicación local resuelve únicamente la validación de desarrollo en Linux.
+- B127 no decide todavía la estrategia definitiva de descarga, distribución o empaquetado de modelos para Android, iOS, Windows u otras plataformas.
+
+### Implementación frontend
+
+- Se creó `SherpaOnnxMoonshineModelPaths` para inyectar explícitamente las rutas del modelo.
+- Se creó `SherpaOnnxRecognitionOutput` como resultado bruto independiente del contrato de aplicación.
+- Se creó `SherpaOnnxRecognitionRuntime` para aislar la ejecución del motor nativo.
+- Se creó `SherpaOnnxNativeRecognitionRuntime` con ejecución real de Sherpa-ONNX.
+- Se mantuvo `SherpaOnnxSpeechRecognitionController` detrás de `SpeechRecognitionController`.
+- La inicialización de bindings nativos es diferida y se realiza solo cuando se solicita reconocimiento.
+- El runtime crea y libera explícitamente `OfflineStream` y `OfflineRecognizer`.
+- Un WAV inválido o ilegible produce un fallo técnico controlado.
+- Las excepciones del runtime se transforman en `SpeechRecognitionStatus.failed`.
+
+### Estados técnicos protegidos
+
+- `recognized`: existe una transcripción reconocida.
+- `noSpeech`: el runtime termina sin texto reconocido.
+- `failed`: ocurrió un fallo técnico durante el reconocimiento.
+
+Ninguno de estos estados representa corrección pedagógica.
+
+### Transcript, tokens y words
+
+- Sherpa-ONNX devuelve tokens propios del tokenizer.
+- Se confirmó que esos tokens no equivalen directamente a palabras.
+- `SpeechRecognitionResult.words` se deriva de la transcripción final y no de `result.tokens`.
+- Para el smoke probado:
+  - transcript: `Hello, what is your name?`
+  - words: `Hello`, `what`, `is`, `your`, `name`
+
+### Validación real
+
+- Se validó un WAV existente de la aplicación:
+  `assets/audio/a1_u1_l1_c1_t1_us.wav`.
+- Formato comprobado: mono, 16 bits, 22050 Hz.
+- Sherpa-ONNX realizó internamente resampling de 22050 Hz a 16000 Hz.
+- Resultado real:
+  `Hello, what is your name?`
+- El controlador completo devolvió:
+  - `SpeechRecognitionStatus.recognized`;
+  - transcript correcto;
+  - words derivadas;
+  - `locale=en-US`;
+  - `turnId=t1`.
+
+### Separación de responsabilidades
+
+- `LearnerProduction` continúa representando lo producido por el estudiante.
+- `SpeechRecognitionResult` representa únicamente lo detectado por reconocimiento técnico.
+- `SherpaOnnxRecognitionOutput` es un detalle interno del motor.
+- B127 no compara la transcripción con una respuesta esperada.
+- B127 no determina pronunciación correcta o incorrecta.
+- B127 no genera `EvidenceRecord`.
+- B127 no actualiza mastery ni retention de ninguna Skill.
+
+### Límites explícitos de B127
+
+- No se conectó todavía el reconocimiento con `LessonConversationCard`.
+- No se modificó `PronunciationAudioService`.
+- No se cambió la política de WAV temporales.
+- No se persisten archivos WAV.
+- No se envía audio al backend.
+- No se implementó evaluación semántica.
+- No se implementó evaluación fonética.
+- No se añadieron scores ni confidence.
+- No se modificó `content/candidates/`.
+- No se publicó la candidata pedagógica.
+- No se implementó `EvidenceRecord`.
+- No se modificó dominio ni retención de Skills.
+- No se incorporó inteligencia artificial generativa.
+
+### Pruebas y validaciones
+
+- Pruebas del contrato B126 + adaptador B127: 8 superadas.
+- Pruebas específicas del adaptador Sherpa: 6 superadas.
+- Suite completa frontend: 37 pruebas superadas.
+- `flutter analyze`: sin problemas.
+- `git diff --check`: sin errores.
+- Smoke real con Moonshine completado correctamente en Linux x86_64.
+
+### Archivos principales
+
+- `lib/services/sherpa_onnx_speech_recognition_service.dart`
+- `test/sherpa_onnx_speech_recognition_service_test.dart`
+- `pubspec.yaml`
+- `pubspec.lock`
+- `linux/flutter/generated_plugins.cmake`
+- `windows/flutter/generated_plugins.cmake`
+
+### Estado previo al cierre
+
+- Reconocimiento técnico real implementado y validado en Linux.
+- El contrato neutral de B126 permanece intacto.
+- El motor todavía no está conectado al flujo conversacional de usuario.
 - Pendiente revisión final, commit, push y confirmación de Git limpio.

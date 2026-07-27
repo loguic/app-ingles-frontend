@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../models/lesson.dart';
 import '../services/api_service.dart';
 import '../services/pronunciation_audio_service.dart';
+import '../services/speech_recognition_service.dart';
 import 'info_card.dart';
 import 'lesson_conversation_card.dart';
 import 'lesson_exercise_card.dart';
@@ -17,6 +18,7 @@ class LessonDetailCard extends StatefulWidget {
     required this.unitId,
     required this.pronunciationAudioService,
     this.exerciseApiService,
+    this.speechRecognitionController,
     super.key,
   });
 
@@ -31,6 +33,10 @@ class LessonDetailCard extends StatefulWidget {
   /// Optional API service forwarded to exercises for widget tests.
   /// Servicio API opcional enviado a los ejercicios para sus pruebas.
   final ApiService? exerciseApiService;
+
+  /// Optional technical speech recognition shared by conversation cards.
+  /// Reconocimiento técnico opcional compartido por las conversaciones.
+  final SpeechRecognitionController? speechRecognitionController;
 
   @override
   State<LessonDetailCard> createState() => _LessonDetailCardState();
@@ -140,6 +146,8 @@ class _LessonDetailCardState extends State<LessonDetailCard> {
                           userId: "demo-user",
                           audioService: widget.pronunciationAudioService,
                           apiService: widget.exerciseApiService,
+                          speechRecognitionController:
+                              widget.speechRecognitionController,
                         ),
                       ),
                     )

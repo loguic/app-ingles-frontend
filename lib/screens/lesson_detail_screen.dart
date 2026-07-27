@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 import '../models/lesson.dart';
 import '../services/api_service.dart';
 import '../services/pronunciation_audio_service.dart';
+import '../services/speech_recognition_factory.dart';
+import '../services/speech_recognition_service.dart';
 import '../widgets/info_card.dart';
 import '../widgets/lesson_detail_card.dart';
 
@@ -31,6 +33,9 @@ class _LessonDetailScreenState extends State<LessonDetailScreen> {
 
   final PronunciationAudioService _pronunciationAudioService =
       PronunciationAudioService();
+
+  final SpeechRecognitionController? _speechRecognitionController =
+      createConfiguredSpeechRecognitionController();
 
   @override
   void dispose() {
@@ -74,6 +79,7 @@ class _LessonDetailScreenState extends State<LessonDetailScreen> {
                   levelId: widget.levelId,
                   unitId: widget.unitId,
                   pronunciationAudioService: _pronunciationAudioService,
+                  speechRecognitionController: _speechRecognitionController,
                 );
               },
             ),

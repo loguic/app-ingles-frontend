@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:app_ingles/models/lesson.dart';
 import 'package:app_ingles/services/api_service.dart';
 import 'package:app_ingles/services/pronunciation_audio_service.dart';
+import 'package:app_ingles/services/speech_recognition_service.dart';
 import 'package:app_ingles/widgets/lesson_conversation_card.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -77,6 +78,34 @@ class FakeConversationAudioController implements PronunciationAudioController {
   Future<void> dispose() async {
     await _playback.close();
     await _recording.close();
+  }
+}
+
+/// Simulates speech recognition without activating Sherpa-ONNX.
+/// Simula reconocimiento de voz sin activar Sherpa-ONNX.
+class FakeSpeechRecognitionController implements SpeechRecognitionController {
+  SpeechRecognitionRequest? lastRequest;
+
+  @override
+  Future<SpeechRecognitionResult> recognize(
+    SpeechRecognitionRequest request,
+  ) async {
+    lastRequest = request;
+
+    return SpeechRecognitionResult(
+      status: SpeechRecognitionStatus.recognized,
+      languageCode: request.languageCode,
+      userId: request.userId,
+      levelId: request.levelId,
+      unitId: request.unitId,
+      lessonId: request.lessonId,
+      conversationId: request.conversationId,
+      turnId: request.turnId,
+      promptId: request.promptId,
+      locale: request.locale,
+      transcript: 'Hello, I am John.',
+      words: const ['Hello', 'I', 'am', 'John'],
+    );
   }
 }
 
@@ -211,6 +240,7 @@ void main() {
   testWidgets('completes and restarts a guided conversation', (tester) async {
     final audioController = FakeConversationAudioController();
     final apiService = FakeConversationApiService();
+    final speechRecognitionController = FakeSpeechRecognitionController();
     addTearDown(audioController.dispose);
 
     await tester.pumpWidget(
@@ -228,6 +258,7 @@ void main() {
               userId: "test-user-b101",
               audioService: audioController,
               apiService: apiService,
+              speechRecognitionController: speechRecognitionController,
             ),
           ),
         ),
@@ -253,6 +284,19 @@ void main() {
     await tester.tap(find.text('Detener grabación'));
     await tester.pumpAndSettle();
 
+    final recognitionRequest = speechRecognitionController.lastRequest;
+    expect(recognitionRequest, isNotNull);
+    expect(recognitionRequest!.audioPath, '/tmp/conversation-test.wav');
+    expect(recognitionRequest.languageCode, 'en');
+    expect(recognitionRequest.userId, 'test-user-b101');
+    expect(recognitionRequest.levelId, 'A1');
+    expect(recognitionRequest.unitId, 'a1-u1');
+    expect(recognitionRequest.lessonId, 'a1-u1-l1');
+    expect(recognitionRequest.conversationId, 'conversation-test');
+    expect(recognitionRequest.turnId, 'learner-turn');
+    expect(recognitionRequest.promptId, isNull);
+    expect(recognitionRequest.locale, isNull);
+    expect(find.text('Reconocido: Hello, I am John.'), findsOneWidget);
     expect(find.text('Escucha tu voz antes de avanzar.'), findsOneWidget);
     await tester.tap(find.text('Reproducir mi voz'));
     await tester.pumpAndSettle();

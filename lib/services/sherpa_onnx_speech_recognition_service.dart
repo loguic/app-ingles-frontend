@@ -1,5 +1,6 @@
 import "dart:io";
-import "dart:isolate";
+import "dart:math" as math;
+import "dart:typed_data";
 
 import "package:sherpa_onnx/sherpa_onnx.dart" as sherpa;
 
@@ -48,13 +49,94 @@ abstract interface class SherpaOnnxRecognitionRuntime {
 /// Ejecuta reconocimiento Moonshine mediante el runtime nativo Sherpa-ONNX.
 class SherpaOnnxNativeRecognitionRuntime
     implements SherpaOnnxRecognitionRuntime {
-  SherpaOnnxNativeRecognitionRuntime({
-    this.numThreads = 1,
-  });
+  SherpaOnnxNativeRecognitionRuntime({this.numThreads = 1});
 
   final int numThreads;
 
   static bool _bindingsInitialized = false;
+
+  /// Trims only leading and trailing silence while preserving internal pauses.
+  /// Recorta solo silencio inicial y final conservando las pausas internas.
+  Float32List _trimEdgeSilence(Float32List samples, int sampleRate) {
+    if (samples.isEmpty || sampleRate <= 0) {
+      return samples;
+    }
+
+    const threshold = 0.0056; // Approximately -45 dBFS.
+    const frameDurationMs = 20;
+    const requiredActiveMs = 100;
+    const paddingMs = 100;
+
+    final frameSize = math.max(1, sampleRate * frameDurationMs ~/ 1000);
+    final requiredFrames = math.max(1, requiredActiveMs ~/ frameDurationMs);
+    final paddingSamples = sampleRate * paddingMs ~/ 1000;
+
+    bool isActiveFrame(int frameIndex) {
+      final start = frameIndex * frameSize;
+      final end = math.min(start + frameSize, samples.length);
+      var sumSquares = 0.0;
+
+      for (var i = start; i < end; i++) {
+        final sample = samples[i];
+        sumSquares += sample * sample;
+      }
+
+      final rms = math.sqrt(sumSquares / (end - start));
+      return rms >= threshold;
+    }
+
+    final frameCount = (samples.length + frameSize - 1) ~/ frameSize;
+
+    int? firstActiveFrame;
+    var activeRun = 0;
+
+    for (var frame = 0; frame < frameCount; frame++) {
+      if (isActiveFrame(frame)) {
+        activeRun += 1;
+        if (activeRun >= requiredFrames) {
+          firstActiveFrame = frame - requiredFrames + 1;
+          break;
+        }
+      } else {
+        activeRun = 0;
+      }
+    }
+
+    if (firstActiveFrame == null) {
+      return samples;
+    }
+
+    int? lastActiveFrame;
+    activeRun = 0;
+
+    for (var frame = frameCount - 1; frame >= 0; frame--) {
+      if (isActiveFrame(frame)) {
+        activeRun += 1;
+        if (activeRun >= requiredFrames) {
+          lastActiveFrame = frame + requiredFrames - 1;
+          break;
+        }
+      } else {
+        activeRun = 0;
+      }
+    }
+
+    if (lastActiveFrame == null) {
+      return samples;
+    }
+
+    final start = math.max(0, firstActiveFrame * frameSize - paddingSamples);
+    final end = math.min(
+      samples.length,
+      (lastActiveFrame + 1) * frameSize + paddingSamples,
+    );
+
+    if (end <= start) {
+      return samples;
+    }
+
+    return Float32List.fromList(samples.sublist(start, end));
+  }
 
   Future<void> _ensureBindingsInitialized() async {
     if (_bindingsInitialized) {
@@ -67,23 +149,9 @@ class SherpaOnnxNativeRecognitionRuntime
       );
     }
 
-    final uri = await Isolate.resolvePackageUri(
-      Uri.parse("package:sherpa_onnx_linux/any_path_is_ok_here.dart"),
-    );
-    if (uri == null) {
-      throw StateError("Unable to resolve sherpa_onnx_linux.");
-    }
-
-    final packageRoot = File.fromUri(uri).parent.parent;
-    final architecture =
-        Platform.version.contains("arm64") ||
-            Platform.version.contains("aarch64")
-        ? "aarch64"
-        : "x64";
-
-    sherpa.initBindings(
-      "${packageRoot.path}/linux/$architecture",
-    );
+    // Flutter Linux bundles the native Sherpa libraries with the application.
+    // Flutter Linux empaqueta las librerías nativas Sherpa con la aplicación.
+    sherpa.initBindings();
     _bindingsInitialized = true;
   }
 
@@ -118,11 +186,13 @@ class SherpaOnnxNativeRecognitionRuntime
       throw StateError("Unable to read recognition WAV.");
     }
 
+    final preparedSamples = _trimEdgeSilence(wave.samples, wave.sampleRate);
+
     final stream = recognizer.createStream();
 
     try {
       stream.acceptWaveform(
-        samples: wave.samples,
+        samples: preparedSamples,
         sampleRate: wave.sampleRate,
       );
       recognizer.decode(stream);
@@ -132,8 +202,7 @@ class SherpaOnnxNativeRecognitionRuntime
 
       return SherpaOnnxRecognitionOutput(
         transcript: result.text,
-        detectedLanguage:
-            detectedLanguage.isEmpty ? null : detectedLanguage,
+        detectedLanguage: detectedLanguage.isEmpty ? null : detectedLanguage,
       );
     } finally {
       stream.free();
@@ -204,7 +273,12 @@ class SherpaOnnxSpeechRecognitionController
         turnId: request.turnId,
         promptId: request.promptId,
       );
-    } catch (_) {
+    } catch (error, stackTrace) {
+      // Keeps recognition failure non-blocking while exposing technical diagnostics.
+      // Mantiene el fallo no bloqueante y expone el diagnóstico técnico.
+      stderr.writeln("Sherpa recognition failed: $error");
+      stderr.writeln(stackTrace);
+
       return SpeechRecognitionResult(
         status: SpeechRecognitionStatus.failed,
         languageCode: request.languageCode,

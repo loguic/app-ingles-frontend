@@ -6,6 +6,7 @@ import '../controllers/conversation_flow_controller.dart';
 import '../models/lesson.dart';
 import '../services/api_service.dart';
 import '../services/pronunciation_audio_service.dart';
+import '../services/speech_recognition_service.dart';
 
 /// Represents the local stage of one guided conversation.
 /// Representa la etapa local de una conversación guiada.
@@ -29,6 +30,7 @@ class LessonConversationCard extends StatefulWidget {
     required this.userId,
     required this.audioService,
     this.apiService,
+    this.speechRecognitionController,
     super.key,
   });
 
@@ -42,6 +44,10 @@ class LessonConversationCard extends StatefulWidget {
   /// Optional API service used to keep widget tests independent from the backend.
   /// Servicio API opcional para mantener las pruebas separadas del backend.
   final ApiService? apiService;
+
+  /// Optional speech recognition kept independent from pedagogical evaluation.
+  /// Reconocimiento opcional separado de la evaluación pedagógica.
+  final SpeechRecognitionController? speechRecognitionController;
 
   @override
   State<LessonConversationCard> createState() => _LessonConversationCardState();
@@ -61,6 +67,8 @@ class _LessonConversationCardState extends State<LessonConversationCard> {
   String? _activeRecordingId;
   String? _activeLocale;
   String? _recordingPath;
+  SpeechRecognitionResult? _speechRecognitionResult;
+  bool _isRecognizingSpeech = false;
   String? _errorMessage;
   bool _isBusy = false;
   bool _hasReviewedRecording = false;
@@ -294,6 +302,8 @@ class _LessonConversationCardState extends State<LessonConversationCard> {
       if (mounted) {
         setState(() {
           _recordingPath = null;
+          _speechRecognitionResult = null;
+          _isRecognizingSpeech = false;
           _hasReviewedRecording = false;
           _step = _ConversationPracticeStep.recordLearner;
         });
@@ -332,6 +342,7 @@ class _LessonConversationCardState extends State<LessonConversationCard> {
 
       setState(() {
         _recordingPath = path;
+        _speechRecognitionResult = null;
         _hasReviewedRecording = false;
 
         if (path == null) {
@@ -340,6 +351,10 @@ class _LessonConversationCardState extends State<LessonConversationCard> {
           _step = _ConversationPracticeStep.reviewLearner;
         }
       });
+
+      if (path != null) {
+        await _recognizeRecording(path);
+      }
     } catch (_) {
       if (mounted) {
         setState(() {
@@ -350,6 +365,55 @@ class _LessonConversationCardState extends State<LessonConversationCard> {
       if (mounted) {
         setState(() {
           _isBusy = false;
+        });
+      }
+    }
+  }
+
+  /// Recognizes the temporary learner WAV without evaluating its correctness.
+  /// Reconoce el WAV temporal sin evaluar si la respuesta es correcta.
+  Future<void> _recognizeRecording(String path) async {
+    final controller = widget.speechRecognitionController;
+
+    if (controller == null) {
+      return;
+    }
+
+    final turn = _currentTurn;
+
+    setState(() {
+      _isRecognizingSpeech = true;
+      _speechRecognitionResult = null;
+    });
+
+    try {
+      final result = await controller.recognize(
+        SpeechRecognitionRequest(
+          audioPath: path,
+          languageCode: 'en',
+          userId: widget.userId,
+          levelId: widget.levelId,
+          unitId: widget.unitId,
+          lessonId: widget.lessonId,
+          conversationId: widget.conversation.id,
+          turnId: turn.id,
+          promptId: turn.productionPrompt?.id,
+          locale: _activeLocale,
+        ),
+      );
+
+      if (mounted) {
+        setState(() {
+          _speechRecognitionResult = result;
+        });
+      }
+    } catch (_) {
+      // Recognition must never block review of the learner recording.
+      // El reconocimiento nunca debe impedir revisar la grabación.
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isRecognizingSpeech = false;
         });
       }
     }
@@ -712,6 +776,39 @@ class _LessonConversationCardState extends State<LessonConversationCard> {
     );
   }
 
+  /// Shows technical recognition state without judging learner correctness.
+  /// Muestra el estado técnico sin juzgar si la respuesta es correcta.
+  Widget _buildSpeechRecognitionStatus() {
+    if (_isRecognizingSpeech) {
+      return const Row(
+        children: [
+          SizedBox(
+            width: 18,
+            height: 18,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          ),
+          SizedBox(width: 10),
+          Text('Reconociendo tu respuesta...'),
+        ],
+      );
+    }
+
+    final result = _speechRecognitionResult;
+
+    if (result == null) {
+      return const SizedBox.shrink();
+    }
+
+    switch (result.status) {
+      case SpeechRecognitionStatus.recognized:
+        return Text('Reconocido: ${result.transcript ?? ""}');
+      case SpeechRecognitionStatus.noSpeech:
+        return const Text('No se detectó voz en la grabación.');
+      case SpeechRecognitionStatus.failed:
+        return const Text('No se pudo reconocer la grabación.');
+    }
+  }
+
   Widget _buildLearnerControls() {
     final hasChoices = _currentTurn.hasChoices;
 
@@ -760,6 +857,9 @@ class _LessonConversationCardState extends State<LessonConversationCard> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         ...choiceSelector,
+        _buildSpeechRecognitionStatus(),
+        if (_isRecognizingSpeech || _speechRecognitionResult != null)
+          const SizedBox(height: 12),
         Wrap(
           spacing: 8,
           runSpacing: 8,

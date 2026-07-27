@@ -1742,3 +1742,157 @@ Ninguno de estos estados representa corrección pedagógica.
 - Commit documental inicial: `fdbe9fc` — `docs cerrar B127 reconocimiento Sherpa`.
 - Cambios publicados en `origin/master`.
 - Git quedó limpio y sincronizado.
+
+## B128 — Reconocimiento de voz integrado en práctica conversacional
+
+Fecha: 2026-07-27
+
+### Objetivo
+
+Conectar el reconocimiento técnico real de B126/B127 con la práctica conversacional del estudiante, manteniendo una separación estricta entre reconocimiento de voz y evaluación pedagógica.
+
+### Configuración externa del modelo
+
+- Se añadió `SpeechRecognitionConfig`.
+- El directorio del modelo se recibe mediante:
+  `APP_INGLES_STT_MODEL_DIR`.
+- La ruta personal del entorno Linux no queda hardcodeada en el producto.
+- Si no existe configuración válida o faltan artefactos del modelo, STT permanece desactivado sin romper la conversación.
+- Se añadió `createConfiguredSpeechRecognitionController()` como ensamblador de infraestructura.
+- El modelo Moonshine continúa fuera del repositorio.
+
+### Integración con la aplicación
+
+El controlador de reconocimiento se propaga mediante inyección:
+
+`LessonDetailScreen`
+→ `LessonDetailCard`
+→ `LessonConversationCard`
+
+`LessonConversationCard` continúa funcionando sin STT cuando no recibe un controlador.
+
+### Flujo implementado
+
+En un turno del estudiante:
+
+1. el usuario graba su respuesta;
+2. `PronunciationAudioService` produce el WAV temporal;
+3. al detener la grabación se crea `SpeechRecognitionRequest`;
+4. se envían contexto e identificadores disponibles:
+   - usuario;
+   - nivel;
+   - unidad;
+   - lección;
+   - conversación;
+   - turno;
+   - `productionPrompt.id` cuando existe;
+   - locale cuando existe;
+5. Sherpa-ONNX procesa el audio;
+6. la interfaz muestra el resultado técnico.
+
+Estados visibles:
+
+- `Reconociendo tu respuesta...`
+- `Reconocido: <transcript>`
+- `No se detectó voz en la grabación.`
+- `No se pudo reconocer la grabación.`
+
+La reproducción de la propia voz continúa siendo obligatoria antes de avanzar.
+
+### Preprocesamiento acústico
+
+Durante la validación real se comprobó:
+
+- WAV del micrófono: PCM, mono, 16 bits, 44100 Hz.
+- Sherpa realiza resampling interno a 16000 Hz.
+- Cambiar únicamente el sample rate no resolvía el reconocimiento.
+- Normalizar volumen tampoco resolvía el problema.
+- Un primer recorte de silencio eliminaba pausas internas y reducía un WAV de 4.90 s a aproximadamente 0.52 s, por lo que fue descartado.
+- Se confirmó que la grabación contenía:
+  - aproximadamente 2.0 s de silencio inicial;
+  - una pausa interna natural;
+  - aproximadamente 1.07 s de silencio final.
+- El comportamiento correcto fue recortar solo silencio inicial y final conservando pausas internas.
+- El runtime implementa ese recorte en memoria antes de `acceptWaveform()`.
+- No se introdujo FFmpeg como dependencia de la aplicación.
+
+### Inicialización nativa Sherpa en Flutter Linux
+
+La integración inicial utilizaba `Isolate.resolvePackageUri(...)`, válida durante el smoke ejecutado con `dart run`, pero no soportada dentro del runtime Flutter Linux.
+
+Error real observado:
+
+`Unsupported operation: Isolate.resolvePackageUriSync`
+
+Se confirmó que `sherpa_onnx_linux 1.13.4` incluye en su bundle:
+
+- `libsherpa-onnx-c-api.so`;
+- `libonnxruntime.so`.
+
+La inicialización se corrigió para Flutter Linux mediante:
+
+`sherpa.initBindings()`
+
+permitiendo que la librería cargue el artefacto nativo empaquetado por el plugin.
+
+### Validación real en aplicación
+
+Se arrancó Flutter Linux con:
+
+`--dart-define=APP_INGLES_STT_MODEL_DIR=<directorio-modelo>`
+
+y se recorrió manualmente:
+
+`Meeting someone`
+→ interlocutor
+→ `Tu respuesta`
+→ grabación real
+→ detener
+→ reconocimiento.
+
+Resultado visible confirmado:
+
+`Reconocido: Hello, I am John.`
+
+La misma arquitectura conserva el WAV temporal y no envía audio al backend.
+
+### Separación pedagógica
+
+B128 reconoce lo que el estudiante dijo, pero no determina si estuvo bien o mal.
+
+No se implementó:
+
+- comparación semántica con respuesta esperada;
+- evaluación fonética;
+- score de pronunciación;
+- confidence pedagógica;
+- `EvidenceRecord`;
+- mastery;
+- retention;
+- modificación de Skills;
+- generación con IA.
+
+### Archivos principales
+
+- `lib/services/speech_recognition_config.dart`
+- `lib/services/speech_recognition_factory.dart`
+- `lib/services/sherpa_onnx_speech_recognition_service.dart`
+- `lib/screens/lesson_detail_screen.dart`
+- `lib/widgets/lesson_detail_card.dart`
+- `lib/widgets/lesson_conversation_card.dart`
+- `test/lesson_conversation_card_test.dart`
+
+### Pruebas y validaciones
+
+- Pruebas específicas B126/B127/B128: superadas.
+- Suite completa frontend: 37 pruebas superadas.
+- `flutter analyze`: sin problemas.
+- `git diff --check`: sin errores.
+- Validación manual real con micrófono y Sherpa-ONNX: correcta.
+
+### Estado previo al cierre
+
+- Capacidad técnica y experiencia visible de B128 implementadas.
+- Reconocimiento real validado dentro de Flutter Linux.
+- Separación reconocimiento/evaluación preservada.
+- Pendiente únicamente versionar, publicar y confirmar Git limpio.

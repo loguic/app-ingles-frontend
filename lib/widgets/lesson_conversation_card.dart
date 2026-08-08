@@ -67,6 +67,8 @@ class _LessonConversationCardState extends State<LessonConversationCard> {
   String? _activeRecordingId;
   String? _activeLocale;
   String? _recordingPath;
+  final Map<String, String> _productionRecordingPaths = {};
+  final Set<String> _revealedTranscriptTurnIds = {};
   SpeechRecognitionResult? _speechRecognitionResult;
   bool _isRecognizingSpeech = false;
   String? _errorMessage;
@@ -82,6 +84,19 @@ class _LessonConversationCardState extends State<LessonConversationCard> {
       widget.conversation.turns[_currentTurnIndex];
 
   bool get _isRecording => _activeRecordingId == _currentTurn.id;
+
+  bool get _usesProductionSubmission =>
+      widget.conversation.mode == 'free' &&
+      widget.conversation.audioFirstPolicy != null &&
+      widget.conversation.turns.any(
+        (turn) => turn.productionPrompt?.required ?? false,
+      );
+
+  bool get _isAudioFirstPartnerTurn =>
+      _currentTurn.isPartner && widget.conversation.audioFirstPolicy != null;
+
+  bool get _isCurrentTranscriptRevealed =>
+      _revealedTranscriptTurnIds.contains(_currentTurn.id);
 
   String get _learnerText =>
       _flowController.selectedChoice?.en ?? _currentTurn.en;
@@ -476,10 +491,17 @@ class _LessonConversationCardState extends State<LessonConversationCard> {
 
     try {
       final path = _recordingPath;
+      final prompt = _currentTurn.productionPrompt;
 
       await widget.audioService.stopPlayback();
 
-      if (path != null) {
+      if (_usesProductionSubmission && path != null && prompt != null) {
+        final replacedPath = _productionRecordingPaths[prompt.id];
+        if (replacedPath != null && replacedPath != path) {
+          await widget.audioService.deleteRecording(replacedPath);
+        }
+        _productionRecordingPaths[prompt.id] = path;
+      } else if (path != null) {
         await widget.audioService.deleteRecording(path);
       }
 
@@ -516,16 +538,18 @@ class _LessonConversationCardState extends State<LessonConversationCard> {
     });
 
     try {
-      final saved = await _apiService.saveConversationAttempt(
-        userId: widget.userId,
-        levelId: widget.levelId,
-        unitId: widget.unitId,
-        lessonId: widget.lessonId,
-        conversationId: widget.conversation.id,
-        mode: widget.conversation.mode,
-        visitedTurnIds: _flowController.visitedTurnIds,
-        selectedChoiceIds: _flowController.selectedChoiceIds,
-      );
+      final saved = _usesProductionSubmission
+          ? await _saveProductionSubmission()
+          : await _apiService.saveConversationAttempt(
+              userId: widget.userId,
+              levelId: widget.levelId,
+              unitId: widget.unitId,
+              lessonId: widget.lessonId,
+              conversationId: widget.conversation.id,
+              mode: widget.conversation.mode,
+              visitedTurnIds: _flowController.visitedTurnIds,
+              selectedChoiceIds: _flowController.selectedChoiceIds,
+            );
 
       if (!mounted || attemptSequence != _attemptSequence) {
         return;
@@ -533,7 +557,11 @@ class _LessonConversationCardState extends State<LessonConversationCard> {
 
       setState(() {
         _attemptSaved = saved;
-        _persistenceMessage = saved
+        _persistenceMessage = _usesProductionSubmission
+            ? saved
+                  ? 'Tres respuestas guardadas. Esto no implica comprensión ni progreso.'
+                  : 'La conversación fue recorrida, pero no se pudieron guardar las respuestas.'
+            : saved
             ? "Progreso conversacional guardado."
             : "La conversación terminó, pero no se pudo guardar el progreso.";
       });
@@ -543,8 +571,9 @@ class _LessonConversationCardState extends State<LessonConversationCard> {
       }
 
       setState(() {
-        _persistenceMessage =
-            "La conversación terminó, pero no se pudo guardar el progreso.";
+        _persistenceMessage = _usesProductionSubmission
+            ? 'La conversación fue recorrida, pero no se pudieron guardar las respuestas.'
+            : "La conversación terminó, pero no se pudo guardar el progreso.";
       });
     } finally {
       if (mounted && attemptSequence == _attemptSequence) {
@@ -553,6 +582,53 @@ class _LessonConversationCardState extends State<LessonConversationCard> {
         });
       }
     }
+  }
+
+  Future<bool> _saveProductionSubmission() async {
+    final productions = <Map<String, dynamic>>[];
+
+    for (final turn in widget.conversation.turns) {
+      final prompt = turn.productionPrompt;
+      if (prompt == null || !prompt.required) {
+        continue;
+      }
+
+      final path = _productionRecordingPaths[prompt.id];
+      if (path == null) {
+        return false;
+      }
+
+      final audioReference = await _apiService
+          .uploadConversationProductionAudio(path);
+      if (audioReference == null) {
+        return false;
+      }
+
+      productions.add({
+        'prompt_id': prompt.id,
+        'turn_id': turn.id,
+        'modality': 'voice',
+        'audio_reference': audioReference,
+      });
+    }
+
+    final saved = await _apiService.saveConversationProductions(
+      userId: widget.userId,
+      levelId: widget.levelId,
+      unitId: widget.unitId,
+      lessonId: widget.lessonId,
+      conversationId: widget.conversation.id,
+      productions: productions,
+    );
+
+    if (saved) {
+      for (final path in _productionRecordingPaths.values) {
+        await widget.audioService.deleteRecording(path);
+      }
+      _productionRecordingPaths.clear();
+    }
+
+    return saved;
   }
 
   void _moveToNextTurn({bool updateState = true}) {
@@ -615,6 +691,10 @@ class _LessonConversationCardState extends State<LessonConversationCard> {
       if (path != null) {
         await widget.audioService.deleteRecording(path);
       }
+      for (final savedPath in _productionRecordingPaths.values) {
+        await widget.audioService.deleteRecording(savedPath);
+      }
+      _productionRecordingPaths.clear();
 
       if (!mounted) {
         return;
@@ -631,6 +711,7 @@ class _LessonConversationCardState extends State<LessonConversationCard> {
         _isSavingAttempt = false;
         _attemptSaved = false;
         _persistenceMessage = null;
+        _revealedTranscriptTurnIds.clear();
 
         if (initialTurn == null) {
           _currentTurnIndex = 0;
@@ -731,6 +812,26 @@ class _LessonConversationCardState extends State<LessonConversationCard> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        if (pronunciation != null) ...[
+          OutlinedButton.icon(
+            onPressed: canPlay ? _playPartnerReference : null,
+            icon: const Icon(Icons.replay_outlined),
+            label: const Text('Volver a escuchar'),
+          ),
+          const SizedBox(height: 8),
+        ],
+        if (_isAudioFirstPartnerTurn && !_isCurrentTranscriptRevealed) ...[
+          TextButton.icon(
+            onPressed: _isBusy
+                ? null
+                : () => setState(
+                    () => _revealedTranscriptTurnIds.add(_currentTurn.id),
+                  ),
+            icon: const Icon(Icons.closed_caption_outlined),
+            label: const Text('Mostrar transcript por accesibilidad'),
+          ),
+          const SizedBox(height: 8),
+        ],
         if (_currentTurn.es != null) ...[
           Text(_currentTurn.es!, style: Theme.of(context).textTheme.bodyLarge),
           const SizedBox(height: 12),
@@ -819,12 +920,31 @@ class _LessonConversationCardState extends State<LessonConversationCard> {
     final choiceSelector = hasChoices
         ? <Widget>[_buildChoiceSelector(), const SizedBox(height: 14)]
         : const <Widget>[];
+    final visibleSupport = _currentTurn.productionPrompt?.visibleSupport ?? [];
+    final supportWidgets = visibleSupport.isEmpty
+        ? const <Widget>[]
+        : <Widget>[
+            Text(
+              'Apoyo disponible',
+              style: Theme.of(context).textTheme.labelLarge,
+            ),
+            const SizedBox(height: 6),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: visibleSupport
+                  .map((item) => Chip(label: Text(item)))
+                  .toList(),
+            ),
+            const SizedBox(height: 14),
+          ];
 
     if (_step == _ConversationPracticeStep.prepareLearner) {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           ...choiceSelector,
+          ...supportWidgets,
           FilledButton.icon(
             onPressed:
                 !_isBusy &&
@@ -844,6 +964,7 @@ class _LessonConversationCardState extends State<LessonConversationCard> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           ...choiceSelector,
+          ...supportWidgets,
           FilledButton.icon(
             onPressed: _isBusy ? null : _stopRecording,
             icon: const Icon(Icons.stop_circle_outlined),
@@ -857,6 +978,7 @@ class _LessonConversationCardState extends State<LessonConversationCard> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         ...choiceSelector,
+        ...supportWidgets,
         _buildSpeechRecognitionStatus(),
         if (_isRecognizingSpeech || _speechRecognitionResult != null)
           const SizedBox(height: 12),
@@ -918,7 +1040,9 @@ class _LessonConversationCardState extends State<LessonConversationCard> {
           ),
           const SizedBox(height: 8),
           Text(
-            'Conversación completada',
+            _usesProductionSubmission && !_attemptSaved
+                ? 'Conversación recorrida'
+                : 'Conversación completada',
             style: Theme.of(context).textTheme.titleLarge?.copyWith(
               color: colorScheme.onPrimaryContainer,
               fontWeight: FontWeight.w700,
@@ -1074,12 +1198,15 @@ class _LessonConversationCardState extends State<LessonConversationCard> {
                       ],
                     ),
                     const SizedBox(height: 12),
-                    Text(
-                      _currentTurn.isLearner ? _learnerText : _currentTurn.en,
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
+                    if (!_isAudioFirstPartnerTurn ||
+                        _isCurrentTranscriptRevealed)
+                      Text(
+                        _currentTurn.isLearner ? _learnerText : _currentTurn.en,
+                        style: Theme.of(context).textTheme.titleMedium
+                            ?.copyWith(fontWeight: FontWeight.w600),
+                      )
+                    else
+                      const Text('Escucha primero la intervención.'),
                     if (_currentTurn.isLearner &&
                         _learnerTranslation != null) ...[
                       const SizedBox(height: 6),

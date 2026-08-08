@@ -101,11 +101,23 @@ class LearnerProductionPrompt {
     required this.id,
     required this.acceptedModalities,
     this.required = true,
+    this.productionFunction,
+    this.primaryModality,
+    this.fallbackModalities = const [],
+    this.supportLevel,
+    this.visibleSupport = const [],
+    this.allowFullAnswerModel,
   });
 
   final String id;
   final List<String> acceptedModalities;
   final bool required;
+  final String? productionFunction;
+  final String? primaryModality;
+  final List<String> fallbackModalities;
+  final String? supportLevel;
+  final List<String> visibleSupport;
+  final bool? allowFullAnswerModel;
 
   factory LearnerProductionPrompt.fromJson(Map<String, dynamic> json) {
     final modalities = json["accepted_modalities"] as List<dynamic>? ?? [];
@@ -114,6 +126,14 @@ class LearnerProductionPrompt {
       id: json["id"] as String,
       acceptedModalities: modalities.cast<String>(),
       required: json["required"] as bool? ?? true,
+      productionFunction: json["production_function"] as String?,
+      primaryModality: json["primary_modality"] as String?,
+      fallbackModalities: (json["fallback_modalities"] as List<dynamic>? ?? [])
+          .cast<String>(),
+      supportLevel: json["support_level"] as String?,
+      visibleSupport: (json["visible_support"] as List<dynamic>? ?? [])
+          .cast<String>(),
+      allowFullAnswerModel: json["allow_full_answer_model"] as bool?,
     );
   }
 }
@@ -130,6 +150,7 @@ class ConversationTurn {
     this.productionPrompt,
     this.nextTurnId,
     this.choices = const [],
+    this.interactionFunction,
   });
 
   final String id;
@@ -140,6 +161,7 @@ class ConversationTurn {
   final LearnerProductionPrompt? productionPrompt;
   final String? nextTurnId;
   final List<ConversationChoice> choices;
+  final String? interactionFunction;
 
   bool get isPartner => speaker == "partner";
   bool get isLearner => speaker == "learner";
@@ -168,6 +190,38 @@ class ConversationTurn {
           .cast<Map<String, dynamic>>()
           .map(ConversationChoice.fromJson)
           .toList(),
+      interactionFunction: json["interaction_function"] as String?,
+    );
+  }
+}
+
+/// Controls audio-first delivery while keeping transcript use exceptional.
+class AudioFirstPresentationPolicy {
+  const AudioFirstPresentationPolicy({
+    required this.primaryPresentation,
+    required this.audioReplayAllowed,
+    required this.transcriptInitiallyHidden,
+    required this.transcriptAccess,
+    required this.transcriptUseInterpretation,
+    required this.transcriptIsAnswerModel,
+  });
+
+  final String primaryPresentation;
+  final bool audioReplayAllowed;
+  final bool transcriptInitiallyHidden;
+  final String transcriptAccess;
+  final String transcriptUseInterpretation;
+  final bool transcriptIsAnswerModel;
+
+  factory AudioFirstPresentationPolicy.fromJson(Map<String, dynamic> json) {
+    return AudioFirstPresentationPolicy(
+      primaryPresentation: json["primary_presentation"] as String,
+      audioReplayAllowed: json["audio_replay_allowed"] as bool,
+      transcriptInitiallyHidden: json["transcript_initially_hidden"] as bool,
+      transcriptAccess: json["transcript_access"] as String,
+      transcriptUseInterpretation:
+          json["transcript_use_interpretation"] as String,
+      transcriptIsAnswerModel: json["transcript_is_answer_model"] as bool,
     );
   }
 }
@@ -182,6 +236,7 @@ class Conversation {
     this.mode = "guided",
     this.startTurnId,
     this.turns = const [],
+    this.audioFirstPolicy,
   });
 
   final String id;
@@ -190,6 +245,7 @@ class Conversation {
   final String mode;
   final String? startTurnId;
   final List<ConversationTurn> turns;
+  final AudioFirstPresentationPolicy? audioFirstPolicy;
 
   /// Finds a turn by its stable identifier.
   /// Busca un turno mediante su identificador estable.
@@ -230,6 +286,11 @@ class Conversation {
           .cast<Map<String, dynamic>>()
           .map(ConversationTurn.fromJson)
           .toList(),
+      audioFirstPolicy: json["audio_first_policy"] == null
+          ? null
+          : AudioFirstPresentationPolicy.fromJson(
+              json["audio_first_policy"] as Map<String, dynamic>,
+            ),
     );
   }
 }

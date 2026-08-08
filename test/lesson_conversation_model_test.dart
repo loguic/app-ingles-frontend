@@ -175,11 +175,64 @@ void main() {
     final learnerTurn = conversation.turns.last;
     expect(learnerTurn.productionPrompt, isNotNull);
     expect(learnerTurn.productionPrompt!.id, 'a1-u1-l1-c3-p1');
-    expect(
-      learnerTurn.productionPrompt!.acceptedModalities,
-      ['text', 'voice'],
-    );
+    expect(learnerTurn.productionPrompt!.acceptedModalities, ['text', 'voice']);
     expect(learnerTurn.productionPrompt!.required, isTrue);
   });
 
+  test('parses B181 audio-first execution fields', () {
+    final conversation = Conversation.fromJson({
+      'id': 'a1-u1-l2-c1',
+      'title': 'Keep the conversation going',
+      'mode': 'free',
+      'audio_first_policy': {
+        'primary_presentation': 'audio',
+        'audio_replay_allowed': true,
+        'transcript_initially_hidden': true,
+        'transcript_access': 'contingency_accessibility',
+        'transcript_use_interpretation': 'assisted_not_exclusively_auditory',
+        'transcript_is_answer_model': false,
+      },
+      'turns': [
+        {
+          'id': 'partner',
+          'speaker': 'partner',
+          'en': 'Where are you from?',
+          'interaction_function': 'unexpected_follow_up',
+        },
+        {
+          'id': 'learner',
+          'speaker': 'learner',
+          'en': 'Answer in your own words.',
+          'production_prompt': {
+            'id': 'place',
+            'accepted_modalities': ['voice', 'text'],
+            'production_function': 'contingent_response',
+            'primary_modality': 'voice',
+            'fallback_modalities': ['text'],
+            'support_level': 'anchors',
+            'visible_support': ['Place', 'I am from'],
+            'allow_full_answer_model': false,
+          },
+        },
+      ],
+    });
+
+    final policy = conversation.audioFirstPolicy!;
+    expect(policy.primaryPresentation, 'audio');
+    expect(policy.transcriptInitiallyHidden, isTrue);
+    expect(policy.transcriptAccess, 'contingency_accessibility');
+    expect(policy.transcriptIsAnswerModel, isFalse);
+    expect(
+      conversation.turns.first.interactionFunction,
+      'unexpected_follow_up',
+    );
+
+    final prompt = conversation.turns.last.productionPrompt!;
+    expect(prompt.productionFunction, 'contingent_response');
+    expect(prompt.primaryModality, 'voice');
+    expect(prompt.fallbackModalities, ['text']);
+    expect(prompt.supportLevel, 'anchors');
+    expect(prompt.visibleSupport, ['Place', 'I am from']);
+    expect(prompt.allowFullAnswerModel, isFalse);
+  });
 }

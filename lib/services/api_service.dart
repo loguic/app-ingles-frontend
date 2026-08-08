@@ -214,6 +214,48 @@ class ApiService {
         .toList();
   }
 
+  /// Uploads one learner WAV and returns its opaque backend reference.
+  Future<String?> uploadConversationProductionAudio(String audioPath) async {
+    final request = http.MultipartRequest(
+      'POST',
+      Uri.parse('$baseUrl/conversation-production-audio'),
+    );
+    request.files.add(await http.MultipartFile.fromPath('audio', audioPath));
+
+    final response = await http.Response.fromStream(await request.send());
+    if (response.statusCode != 200) {
+      return null;
+    }
+
+    final data = jsonDecode(response.body) as Map<String, dynamic>;
+    return data['audio_reference'] as String?;
+  }
+
+  /// Persists one complete group of real conversation productions.
+  Future<bool> saveConversationProductions({
+    required String userId,
+    required String levelId,
+    required String unitId,
+    required String lessonId,
+    required String conversationId,
+    required List<Map<String, dynamic>> productions,
+  }) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/conversation-productions'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({
+        'user_id': userId,
+        'level_id': levelId,
+        'unit_id': unitId,
+        'lesson_id': lessonId,
+        'conversation_id': conversationId,
+        'productions': productions,
+      }),
+    );
+
+    return response.statusCode == 200;
+  }
+
   /// Gets the saved progress records for one user.
   /// Obtiene los registros de progreso guardados de un usuario.
   Future<List<ProgressRecord>> getProgress(String userId) async {

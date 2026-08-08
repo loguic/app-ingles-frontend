@@ -13,6 +13,7 @@ import 'package:flutter_test/flutter_test.dart';
 class FakeConversationAudioController implements PronunciationAudioController {
   final _playback = StreamController<String?>.broadcast();
   final _recording = StreamController<String?>.broadcast();
+  final List<String> deletedRecordingPaths = [];
 
   @override
   String? activePlaybackId;
@@ -72,7 +73,9 @@ class FakeConversationAudioController implements PronunciationAudioController {
   }
 
   @override
-  Future<void> deleteRecording(String path) async {}
+  Future<void> deleteRecording(String path) async {
+    deletedRecordingPaths.add(path);
+  }
 
   @override
   Future<void> dispose() async {
@@ -129,6 +132,10 @@ class FakeConversationApiService extends ApiService {
   String? lastMode;
   List<String>? lastVisitedTurnIds;
   List<String>? lastSelectedChoiceIds;
+  int uploadCallCount = 0;
+  int productionSubmissionCallCount = 0;
+  final List<String> uploadedPaths = [];
+  List<Map<String, dynamic>>? submittedProductions;
 
   @override
   Future<bool> saveConversationAttempt({
@@ -156,6 +163,39 @@ class FakeConversationApiService extends ApiService {
     }
 
     return saveResult;
+  }
+
+  @override
+  Future<String?> uploadConversationProductionAudio(String audioPath) async {
+    uploadCallCount += 1;
+    uploadedPaths.add(audioPath);
+    return 'production-audio://$uploadCallCount';
+  }
+
+  @override
+  Future<bool> saveConversationProductions({
+    required String userId,
+    required String levelId,
+    required String unitId,
+    required String lessonId,
+    required String conversationId,
+    required List<Map<String, dynamic>> productions,
+  }) async {
+    productionSubmissionCallCount += 1;
+    submittedProductions = productions;
+    return saveResult;
+  }
+}
+
+class SequencedConversationAudioController
+    extends FakeConversationAudioController {
+  int stopCount = 0;
+
+  @override
+  Future<String?> stopRecording() async {
+    await super.stopRecording();
+    stopCount += 1;
+    return '/tmp/b181-$stopCount.wav';
   }
 }
 
@@ -232,6 +272,112 @@ const branchingConversation = Conversation(
       id: "partner-tired",
       speaker: "partner",
       en: "I hope you can rest.",
+    ),
+  ],
+);
+
+const b181Conversation = Conversation(
+  id: 'a1-u1-l2-c1',
+  title: 'Keep the conversation going',
+  mode: 'free',
+  audioFirstPolicy: AudioFirstPresentationPolicy(
+    primaryPresentation: 'audio',
+    audioReplayAllowed: true,
+    transcriptInitiallyHidden: true,
+    transcriptAccess: 'contingency_accessibility',
+    transcriptUseInterpretation: 'assisted_not_exclusively_auditory',
+    transcriptIsAnswerModel: false,
+  ),
+  turns: [
+    ConversationTurn(
+      id: 't1',
+      speaker: 'partner',
+      en: 'Where are you from?',
+      pronunciations: [
+        LessonPronunciation(
+          locale: 'en-US',
+          ipa: 't1',
+          audioAsset: 'audio/t1.wav',
+        ),
+      ],
+      nextTurnId: 't2',
+    ),
+    ConversationTurn(
+      id: 't2',
+      speaker: 'learner',
+      en: 'Answer about your place.',
+      productionPrompt: LearnerProductionPrompt(
+        id: 'p1',
+        acceptedModalities: ['voice', 'text'],
+        primaryModality: 'voice',
+        supportLevel: 'anchors',
+        visibleSupport: ['Place', 'I am from'],
+      ),
+      nextTurnId: 't3',
+    ),
+    ConversationTurn(
+      id: 't3',
+      speaker: 'partner',
+      en: 'What do you like doing?',
+      pronunciations: [
+        LessonPronunciation(
+          locale: 'en-US',
+          ipa: 't3',
+          audioAsset: 'audio/t3.wav',
+        ),
+      ],
+      nextTurnId: 't4',
+    ),
+    ConversationTurn(
+      id: 't4',
+      speaker: 'learner',
+      en: 'Answer about an interest.',
+      productionPrompt: LearnerProductionPrompt(
+        id: 'p2',
+        acceptedModalities: ['voice', 'text'],
+        primaryModality: 'voice',
+        supportLevel: 'initial_word',
+        visibleSupport: ['I'],
+      ),
+      nextTurnId: 't5',
+    ),
+    ConversationTurn(
+      id: 't5',
+      speaker: 'partner',
+      en: 'Where do you usually do that?',
+      pronunciations: [
+        LessonPronunciation(
+          locale: 'en-US',
+          ipa: 't5',
+          audioAsset: 'audio/t5.wav',
+        ),
+      ],
+      nextTurnId: 't6',
+    ),
+    ConversationTurn(
+      id: 't6',
+      speaker: 'learner',
+      en: 'React in your own words.',
+      productionPrompt: LearnerProductionPrompt(
+        id: 'p3',
+        acceptedModalities: ['voice', 'text'],
+        primaryModality: 'voice',
+        supportLevel: 'none',
+      ),
+      nextTurnId: 't7',
+    ),
+    ConversationTurn(
+      id: 't7',
+      speaker: 'partner',
+      en: 'It was nice talking with you. See you!',
+      pronunciations: [
+        LessonPronunciation(
+          locale: 'en-US',
+          ipa: 't7',
+          audioAsset: 'audio/t7.wav',
+        ),
+      ],
+      interactionFunction: 'reaction_closure',
     ),
   ],
 );
@@ -503,5 +649,124 @@ void main() {
 
     expect(find.text("Turno 1 de 2"), findsOneWidget);
     expect(find.text("Conversación completada"), findsNothing);
+  });
+
+  testWidgets('runs B181 audio-first and submits three voice productions', (
+    tester,
+  ) async {
+    final audioController = SequencedConversationAudioController();
+    final apiService = FakeConversationApiService();
+    addTearDown(audioController.dispose);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SingleChildScrollView(
+            child: LessonConversationCard(
+              conversation: b181Conversation,
+              levelId: 'A1',
+              unitId: 'a1-u1',
+              lessonId: 'a1-u1-l2',
+              userId: 'b181-user',
+              audioService: audioController,
+              apiService: apiService,
+            ),
+          ),
+        ),
+      ),
+    );
+
+    Future<void> completePartnerTurn({bool revealTranscript = false}) async {
+      expect(find.text('Escucha primero la intervención.'), findsOneWidget);
+      expect(find.text('Mostrar transcript por accesibilidad'), findsNothing);
+      await tester.tap(find.text('Escuchar al interlocutor'));
+      await tester.pumpAndSettle();
+      audioController.completePlayback();
+      await tester.pumpAndSettle();
+      expect(find.text('Volver a escuchar'), findsOneWidget);
+      expect(find.text('Mostrar transcript por accesibilidad'), findsOneWidget);
+      if (revealTranscript) {
+        await tester.tap(find.text('Mostrar transcript por accesibilidad'));
+        await tester.pumpAndSettle();
+      }
+      await tester.tap(find.text('Entendí, continuar'));
+      await tester.pumpAndSettle();
+    }
+
+    Future<void> completeLearnerTurn() async {
+      await tester.tap(find.text('Grabar mi respuesta'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Detener grabación'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Reproducir mi voz'));
+      await tester.pumpAndSettle();
+      audioController.completePlayback();
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.text('Avanzar al siguiente turno'));
+      await tester.tap(find.text('Avanzar al siguiente turno'));
+      await tester.pumpAndSettle();
+    }
+
+    expect(find.text('Where are you from?'), findsNothing);
+    await completePartnerTurn(revealTranscript: true);
+    expect(find.text('Place'), findsOneWidget);
+    expect(find.text('I am from'), findsOneWidget);
+    await completeLearnerTurn();
+
+    expect(find.text('What do you like doing?'), findsNothing);
+    await completePartnerTurn();
+    expect(find.text('I'), findsOneWidget);
+    expect(find.text('Place'), findsNothing);
+    await completeLearnerTurn();
+
+    expect(find.text('Where do you usually do that?'), findsNothing);
+    await completePartnerTurn();
+    expect(find.text('Apoyo disponible'), findsNothing);
+    await completeLearnerTurn();
+
+    expect(find.text('It was nice talking with you. See you!'), findsNothing);
+    await completePartnerTurn();
+    await tester.pumpAndSettle();
+
+    expect(apiService.saveCallCount, 0);
+    expect(apiService.uploadCallCount, 3);
+    expect(apiService.productionSubmissionCallCount, 1);
+    expect(apiService.uploadedPaths, [
+      '/tmp/b181-1.wav',
+      '/tmp/b181-2.wav',
+      '/tmp/b181-3.wav',
+    ]);
+    expect(audioController.deletedRecordingPaths, [
+      '/tmp/b181-1.wav',
+      '/tmp/b181-2.wav',
+      '/tmp/b181-3.wav',
+    ]);
+    expect(apiService.submittedProductions, [
+      {
+        'prompt_id': 'p1',
+        'turn_id': 't2',
+        'modality': 'voice',
+        'audio_reference': 'production-audio://1',
+      },
+      {
+        'prompt_id': 'p2',
+        'turn_id': 't4',
+        'modality': 'voice',
+        'audio_reference': 'production-audio://2',
+      },
+      {
+        'prompt_id': 'p3',
+        'turn_id': 't6',
+        'modality': 'voice',
+        'audio_reference': 'production-audio://3',
+      },
+    ]);
+    expect(find.text('Conversación completada'), findsOneWidget);
+    expect(
+      find.text(
+        'Tres respuestas guardadas. Esto no implica comprensión ni progreso.',
+      ),
+      findsOneWidget,
+    );
   });
 }

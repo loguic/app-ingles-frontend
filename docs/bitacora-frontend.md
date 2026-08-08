@@ -1896,3 +1896,152 @@ No se implementó:
 - Reconocimiento real validado dentro de Flutter Linux.
 - Separación reconocimiento/evaluación preservada.
 - Pendiente únicamente versionar, publicar y confirmar Git limpio.
+
+## B181 — Ejecución audio-first y persistencia de conversación breve
+
+Fecha: 2026-08-08
+
+### Objetivo
+
+Permitir que el estudiante ejecute en Flutter `a1-u1-l2-c1` de extremo a extremo:
+
+- escuchar primero cada intervención del interlocutor;
+- revelar opcionalmente el transcript solo después de escuchar;
+- responder tres veces por voz;
+- recibir apoyo visible decreciente `anchors → initial_word → none`;
+- conservar las tres grabaciones;
+- subir los tres WAV;
+- enviar una única `ConversationProductionSubmission` al backend.
+
+### Contexto
+
+B181 Incremento 1 ya había definido y publicado `a1-u1-l2`, `Keep the conversation going`. Los ocho audios US/UK ya estaban publicados y aprobados.
+
+El backend existente ya disponía de:
+
+- `POST /api/v1/conversation-production-audio`;
+- `POST /api/v1/conversation-productions`;
+- `ConversationProductionSubmission`;
+- `LearnerProduction`.
+
+No fue necesario modificar backend.
+
+### Contrato B181 conservado en Flutter
+
+Los modelos Flutter conservan ahora las extensiones necesarias recibidas desde backend:
+
+- `audio_first_policy`;
+- `production_function`;
+- `primary_modality`;
+- `fallback_modalities`;
+- `support_level`;
+- `visible_support`;
+- `allow_full_answer_model`;
+- `interaction_function`.
+
+La ampliación es retrocompatible: las conversaciones anteriores que no declaran estos campos conservan su deserialización y comportamiento previos.
+
+### Flujo audio-first
+
+En B181, el transcript del interlocutor comienza oculto. El estudiante debe escuchar el audio al menos una vez antes de que aparezca la acción explícita para revelar el transcript y puede repetir la reproducción. Revelarlo es una contingencia o medida de accesibilidad: representa comprensión asistida, no exclusivamente auditiva, y no muestra una respuesta modelo del estudiante.
+
+Las conversaciones heredadas sin política audio-first conservan su comportamiento anterior.
+
+### Apoyo visible
+
+Los tres prompts muestran exactamente el apoyo recibido desde backend:
+
+- primera respuesta: `anchors`;
+- segunda respuesta: `initial_word`;
+- tercera respuesta: `none`.
+
+Flutter no genera, completa ni reconstruye respuestas. Cuando el nivel es `none`, no añade ayuda visible.
+
+### Producciones reales
+
+- Las grabaciones se conservan durante toda la conversación.
+- Se indexan mediante `prompt_id` y mantienen su asociación con `turn_id`.
+- Regrabar un turno sustituye únicamente la grabación correspondiente a ese prompt.
+- Las tres grabaciones sobreviven hasta el envío.
+- Tras una submission correcta, se eliminan los temporales correspondientes.
+- Los temporales también se limpian al reiniciar o disponer conforme al ciclo de vida existente.
+
+La voz permanece como modalidad principal y cada producción enviada conserva su identidad sin crear una representación paralela.
+
+### Integración backend
+
+Para la conversación B181 en modo `free`:
+
+1. se suben los tres WAV mediante `POST /api/v1/conversation-production-audio`;
+2. cada subida devuelve una referencia `production-audio://...`;
+3. se construyen las tres producciones con sus `prompt_id`, `turn_id`, modalidad y referencia de audio;
+4. se envía una sola `ConversationProductionSubmission` mediante `POST /api/v1/conversation-productions`.
+
+No se crea almacenamiento paralelo. La conversación B181 `free` no llama a `conversation-attempts`. Los flujos heredados `guided` y `branching` conservan su persistencia previa mediante `conversation-attempts`.
+
+### Reconocimiento de voz
+
+El reconocimiento técnico existente puede continuar funcionando, pero permanece separado de:
+
+- comprensión;
+- pertinencia de la respuesta;
+- evaluación pedagógica;
+- progreso;
+- mastery.
+
+El reconocimiento no se convierte en evidencia de comprensión.
+
+### Separación pedagógica
+
+- producción persistida ≠ comprensión demostrada;
+- reconocimiento técnico ≠ intención comprendida;
+- transcript revelado ≠ modalidad normal;
+- conversación recorrida ≠ éxito pedagógico;
+- tres respuestas guardadas ≠ progreso;
+- tres respuestas guardadas ≠ mastery.
+
+La interfaz distingue entre haber recorrido la conversación y haber guardado las respuestas, sin afirmar comprensión o aprendizaje. No se implementaron scoring, semántica automática, adaptación ni Karaoke Fonético.
+
+### Brechas conscientemente fuera
+
+- El uso del transcript permanece como estado local y no se persiste.
+- No se implementó todavía texto como modalidad fallback.
+- No se implementaron resultados efectivos de revisión:
+  - `intention_understanding`;
+  - `contingent_response`;
+  - `positive | negative | pending`.
+- No existe rollback remoto de WAV ya subidos si un upload posterior o la submission falla.
+- No se añadió backend nuevo para resolver estas brechas.
+
+Estas brechas son límites explícitos del incremento, no errores de la capacidad implementada.
+
+### Archivos principales
+
+- `lib/models/lesson.dart`
+- `lib/services/api_service.dart`
+- `lib/widgets/lesson_conversation_card.dart`
+- `test/lesson_conversation_card_test.dart`
+- `test/lesson_conversation_model_test.dart`
+
+### Pruebas y validaciones
+
+- Pruebas focales finales: 9 passed.
+- `flutter analyze`: correcto.
+- Regresión frontend relacionada: 36 passed.
+- Suite frontend completa final: 39 passed.
+- `git diff --check`: limpio.
+
+La primera ejecución focal detectó un defecto exclusivamente en el doble de audio de prueba. Se corrigió la notificación de fin de grabación del doble y la repetición quedó validada; la evidencia no demuestra un defecto del runtime productivo.
+
+### Trazabilidad
+
+Commit técnico frontend ya creado: `8baf7a6 feat ejecutar conversación audio-first B181`. Todavía no está publicado.
+
+### Estado previo al cierre
+
+- Capacidad técnica implementada.
+- Postflight superado.
+- Backend sin cambios.
+- Incremento 2 documentado; quedan pendientes versionar esta documentación, publicar los commits y confirmar Git limpio.
+- B181 permanece abierto y no queda integralmente cerrado.
+- No se define un Incremento 3 ni un siguiente mecanismo en este punto.

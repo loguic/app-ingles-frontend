@@ -1,178 +1,133 @@
 import 'package:flutter/material.dart';
 
-import '../services/api_service.dart';
+import '../theme/loguic_theme.dart';
 import '../widgets/conversation_history_card.dart';
 import '../widgets/conversation_productions_card.dart';
-import '../widgets/info_card.dart';
-import '../widgets/lesson_list_card.dart';
-import '../widgets/level_selector_card.dart';
 import '../widgets/progress_summary_card.dart';
-import '../widgets/unit_list_card.dart';
-import 'lesson_detail_screen.dart';
 
 /// Initial home screen shown when the app starts.
 /// Pantalla inicial que se muestra al arrancar la aplicación.
-class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key});
+class HomeScreen extends StatelessWidget {
+  const HomeScreen({this.refreshCounter = 0, super.key});
 
-  @override
-  State<HomeScreen> createState() => _HomeScreenState();
-}
-
-class _HomeScreenState extends State<HomeScreen> {
-  static final ApiService _apiService = ApiService();
-
-  String _selectedLevelCode = 'A1';
-  String? _selectedUnitId;
-  String? _selectedLessonId;
-  int _progressRefreshCounter = 0;
-
-  void _selectLevel(String levelCode) {
-    setState(() {
-      _selectedLevelCode = levelCode;
-      _selectedUnitId = null;
-      _selectedLessonId = null;
-    });
-  }
-
-  void _selectUnit(String unitId) {
-    setState(() {
-      _selectedUnitId = unitId;
-      _selectedLessonId = null;
-    });
-  }
-
-  Future<void> _selectLesson(String lessonId) async {
-    setState(() {
-      _selectedLessonId = lessonId;
-    });
-
-    final selectedUnitId = _selectedUnitId;
-
-    if (selectedUnitId == null) {
-      return;
-    }
-
-    await Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (context) => LessonDetailScreen(
-          lessonId: lessonId,
-          levelId: _selectedLevelCode,
-          unitId: selectedUnitId,
-        ),
-      ),
-    );
-
-    setState(() {
-      _progressRefreshCounter++;
-    });
-  }
+  final int refreshCounter;
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('LOGUIC English'),
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(20),
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 720),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                _buildHeader(),
-                const SizedBox(height: 16),
-                _buildBackendStatus(),
-                const SizedBox(height: 16),
-                ProgressSummaryCard(key: ValueKey(_progressRefreshCounter)),
-                const SizedBox(height: 16),
-                ConversationHistoryCard(
-                  key: ValueKey(
-                    "conversation-history-$_progressRefreshCounter",
-                  ),
-                ),
-                const SizedBox(height: 16),
-                ConversationProductionsCard(
-                  key: ValueKey(
-                    "conversation-productions-$_progressRefreshCounter",
-                  ),
-                ),
-                const SizedBox(height: 16),
-                LevelSelectorCard(
-                  selectedLevelCode: _selectedLevelCode,
-                  onLevelSelected: _selectLevel,
-                ),
-                const SizedBox(height: 16),
-                UnitListCard(
-                  selectedLevelCode: _selectedLevelCode,
-                  selectedUnitId: _selectedUnitId,
-                  onUnitSelected: _selectUnit,
-                ),
-                if (_selectedUnitId != null) ...[
-                  const SizedBox(height: 16),
-                  LessonListCard(
-                    key: ValueKey(
-                      'lesson-list-${_selectedUnitId!}-$_progressRefreshCounter',
-                    ),
-                    selectedUnitId: _selectedUnitId!,
-                    selectedLessonId: _selectedLessonId,
-                    onLessonSelected: _selectLesson,
-                  ),
-                ],
-              ],
-            ),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final showSecondaryColumns = constraints.maxWidth >= 760;
+
+        return SingleChildScrollView(
+          padding: EdgeInsets.symmetric(
+            horizontal: constraints.maxWidth >= 760 ? 36 : 20,
+            vertical: 28,
           ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildHeader() {
-    return const Column(
-      children: [
-        Text(
-          'Bienvenido a LOGUIC English',
-          textAlign: TextAlign.center,
-          style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
-        ),
-        SizedBox(height: 8),
-        Text(
-          'Escucha. Habla. Lee. Avanza.',
-          textAlign: TextAlign.center,
-          style: TextStyle(fontSize: 16),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildBackendStatus() {
-    return FutureBuilder<bool>(
-      future: _apiService.checkHealth(),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const InfoCard(
-            title: 'Estado del backend',
-            child: Text('Verificando backend...'),
-          );
-        }
-
-        final isBackendAvailable = snapshot.data ?? false;
-
-        return InfoCard(
-          title: 'Estado del backend',
-          child: Text(
-            isBackendAvailable ? 'Backend conectado' : 'Backend no disponible',
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w600,
-              color: isBackendAvailable ? Colors.green : Colors.red,
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 880),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  _buildHeader(context),
+                  const SizedBox(height: 22),
+                  _ProgressHighlight(refreshCounter: refreshCounter),
+                  const SizedBox(height: 18),
+                  if (showSecondaryColumns)
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(child: _conversationHistory()),
+                        const SizedBox(width: 18),
+                        Expanded(child: _conversationProductions()),
+                      ],
+                    )
+                  else ...[
+                    _conversationHistory(),
+                    const SizedBox(height: 18),
+                    _conversationProductions(),
+                  ],
+                ],
+              ),
             ),
           ),
         );
       },
+    );
+  }
+
+  Widget _conversationHistory() {
+    return ConversationHistoryCard(
+      key: ValueKey('conversation-history-$refreshCounter'),
+    );
+  }
+
+  Widget _conversationProductions() {
+    return ConversationProductionsCard(
+      key: ValueKey('conversation-productions-$refreshCounter'),
+    );
+  }
+
+  Widget _buildHeader(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 2),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'TU ESPACIO DE APRENDIZAJE',
+            style: Theme.of(context).textTheme.labelMedium?.copyWith(
+              color: LoguicTheme.indigo,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 1.1,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'Bienvenido a LOGUIC English',
+            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+              color: LoguicTheme.deepNavy,
+              fontWeight: FontWeight.w800,
+              letterSpacing: -0.5,
+            ),
+          ),
+          const SizedBox(height: 5),
+          Text(
+            'Escucha. Habla. Lee. Avanza.',
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              color: LoguicTheme.navy.withValues(alpha: 0.72),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ProgressHighlight extends StatelessWidget {
+  const _ProgressHighlight({required this.refreshCounter});
+
+  final int refreshCounter;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      key: const Key('home-progress-highlight'),
+      padding: const EdgeInsets.all(3),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [LoguicTheme.indigo, LoguicTheme.blue],
+        ),
+        borderRadius: BorderRadius.circular(LoguicTheme.cardRadius + 2),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x246558E8),
+            blurRadius: 24,
+            offset: Offset(0, 10),
+          ),
+        ],
+      ),
+      child: ProgressSummaryCard(key: ValueKey(refreshCounter)),
     );
   }
 }

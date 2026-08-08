@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
-import 'screens/home_screen.dart';
+import 'screens/main_shell_screen.dart';
+import 'theme/loguic_theme.dart';
 
 void main() {
   runApp(const AppIngles());
@@ -16,10 +17,8 @@ class AppIngles extends StatelessWidget {
     return MaterialApp(
       title: 'LOGUIC English',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.indigo),
-      ),
-      home: const HomeScreen(),
+      theme: LoguicTheme.light,
+      home: const MainShellScreen(),
     );
   }
 }

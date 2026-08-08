@@ -2045,3 +2045,116 @@ Commit técnico frontend ya creado: `8baf7a6 feat ejecutar conversación audio-f
 - Incremento 2 documentado; quedan pendientes versionar esta documentación, publicar los commits y confirmar Git limpio.
 - B181 permanece abierto y no queda integralmente cerrado.
 - No se define un Incremento 3 ni un siguiente mecanismo en este punto.
+
+## B182 — Incremento 1: shell visual y navegación principal de LOGUIC English
+
+Fecha: 2026-08-09
+
+### Objetivo
+
+Establecer la base visual canónica de LOGUIC English para que, al abrir la aplicación, el usuario reconozca la marca y pueda navegar entre cinco destinos principales mediante un shell persistente y responsive, sin reescribir ni desplazar las capacidades funcionales existentes.
+
+La referencia visual es el segundo mockup aprobado de LOGUIC English:
+
+- marca: `LOGUIC English`;
+- eslogan: `Escucha. Habla. Lee. Avanza.`;
+- destinos: `Inicio`, `Niveles`, `Aprender`, `Repaso` y `Perfil`.
+
+### Arquitectura del shell
+
+- `MainShellScreen` centraliza los cinco destinos mediante un `IndexedStack` y conserva el estado compartido al cambiar de sección.
+- `LoguicTheme` centraliza colores, superficies, espaciado, radios, tipografía y estilos de navegación.
+- En escritorio, desde `900 px`, se utiliza una sidebar navy/índigo persistente con marca compacta y destino activo resaltado.
+- En móvil y tablet se conserva una navegación inferior persistente.
+- Ambos formatos comparten los mismos destinos y estado; no se crearon aplicaciones o flujos paralelos.
+- `LessonDetailScreen` continúa abriéndose con `Navigator` desde `Aprender`.
+- Al regresar de una lección se conserva el refresco existente de progreso, historial conversacional y producciones personales.
+
+No se introdujo un router nuevo ni se modificó la semántica de navegación interna de las lecciones.
+
+### Composición visual de Inicio
+
+Inicio presenta una composición centrada y de anchura limitada sobre un fondo claro ligeramente azulado. El progreso actual ocupa la posición visual prioritaria y la práctica conversacional, su historial y las producciones personales quedan como información secundaria en tarjetas compactas y responsive.
+
+La pantalla reutiliza exclusivamente datos reales que ya estaban disponibles:
+
+- ejercicios respondidos;
+- respuestas correctas;
+- historial conversacional;
+- producciones personales.
+
+No se inventaron rachas, minutos de estudio, puntuaciones, rutas por objetivos ni métricas familiares. La tarjeta técnica visible `Estado del backend` dejó de formar parte del primer plano de Inicio, sin alterar las llamadas funcionales restantes.
+
+### Destinos provisionales
+
+- `Niveles` reutiliza temporalmente el selector existente; todavía no implementa el mapa visual A1–C2.
+- `Aprender` reutiliza la navegación existente de unidades y lecciones; todavía no rediseña el detalle de lección.
+- `Repaso` muestra una superficie neutral e indica que la capacidad aún no está disponible, sin simular adaptación ni datos.
+- `Perfil` muestra una superficie neutral, sin inventar usuario, familia, autenticación, estadísticas ni progreso familiar.
+
+### Compatibilidad funcional
+
+El incremento conserva sin cambios la lógica y los contratos de:
+
+- `LessonConversationCard`;
+- `LessonPronunciationControls`;
+- `ConversationFlowController`;
+- servicios de audio y reconocimiento;
+- uploads y persistencia;
+- modelos pedagógicos;
+- backend.
+
+La separación del shell es visual y de composición. No mueve todavía pronunciación, conversación, ejercicios ni persistencia a nuevas pantallas.
+
+### Validación visual humana
+
+La aplicación se ejecutó en Linux y se comparó con el mockup canónico. La puerta visual humana quedó aprobada como base del shell por incorporar:
+
+- sidebar navy/índigo;
+- composición compacta de marca y eslogan;
+- destino activo resaltado;
+- fondo principal claro;
+- contenido centrado y limitado;
+- tarjetas más compactas;
+- una composición reconocible como LOGUIC English.
+
+Esta aprobación valida la base canónica del shell; no significa que Inicio ni los demás destinos estén terminados visualmente.
+
+### Pruebas y validaciones
+
+- Pruebas focales del shell: 5 passed.
+- Regresión relacionada de lista y detalle: 2 passed.
+- `flutter analyze`: `No issues found`.
+- Suite frontend completa final: 43 tests passed.
+- `git diff --check`: limpio.
+- Validación visual humana en Linux: aprobada.
+
+### Trazabilidad
+
+Commit técnico: `0869439 feat añadir shell visual LOGUIC English`.
+
+### Deudas conscientes
+
+Permanecen fuera de este incremento, sin funcionalidades simuladas:
+
+- rediseño específico de Inicio;
+- mapa visual A1–C2;
+- detalle de lección canónico;
+- pantalla independiente de pronunciación;
+- pantalla independiente de conversación;
+- lectura guiada;
+- misión de fluidez;
+- repaso adaptativo real;
+- perfil y progreso familiar reales.
+
+### Relación con B181
+
+B181 permanece abierto y pausado por dependencia de interfaz. Debe retomarse desde su demostración humana pendiente cuando la superficie correspondiente esté preparada. B182 no cierra B181 ni modifica su implementación.
+
+### Estado del incremento
+
+- Shell visual y navegación principal implementados.
+- Validaciones automatizadas y análisis estático superados.
+- Puerta visual humana aprobada como base canónica.
+- Incremento 1 técnicamente cerrado y trazado por `0869439`.
+- Las pantallas específicas posteriores permanecen fuera de alcance.

@@ -2158,3 +2158,22 @@ B181 permanece abierto y pausado por dependencia de interfaz. Debe retomarse des
 - Puerta visual humana aprobada como base canónica.
 - Incremento 1 técnicamente cerrado y trazado por `0869439`.
 - Las pantallas específicas posteriores permanecen fuera de alcance.
+
+## B181 — Checkpoint frontend posterior a demostración humana
+
+Fecha: 2026-08-11
+
+Durante la demostración humana B181 se detectó que un fallo de upload podía dejar tres grabaciones válidas sin una posibilidad clara de reintentar su persistencia. Se añadió un retry manual que reutiliza las grabaciones existentes, evita el doble envío, limpia las grabaciones solo después del éxito y conserva detalle útil del error backend o HTTP.
+
+La evidencia humana también demostró una ambigüedad entre consigna y respuesta. La UX se corrigió mediante «Responde con tus palabras», «Qué debes hacer» y «Responde con información propia. No repitas la instrucción.», con tratamiento diferenciado de `anchors`, `initial_word` y `none`. La nueva microcopy fue comprendida durante la segunda validación humana.
+
+Validaciones vigentes:
+
+- test focal: PASS;
+- `flutter analyze`: PASS;
+- `git diff --check`: PASS;
+- suite frontend completa: 44 passed.
+
+Commit técnico: `aabe4a4 fix corregir reintento y consigna B181`. El commit todavía no se declara publicado en `origin`.
+
+B181 continúa **PAUSADO EN PUERTA PEDAGÓGICA — NO CERRADO INTEGRALMENTE**. La pausa ya no responde a un fallo de interfaz ni a una revisión humana pendiente. Su reanudación depende de la futura construcción pedagógica canónica A1 y de la revisión del Constructor Pedagógico.

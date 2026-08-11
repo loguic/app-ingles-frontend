@@ -14,6 +14,12 @@ class ApiService {
   /// URL base del backend FastAPI ejecutándose localmente en Ubuntu VMware.
   static const String baseUrl = 'http://127.0.0.1:8001/api/v1';
 
+  String? _lastConversationProductionAudioUploadError;
+
+  /// Last non-sensitive backend detail returned by a production-audio upload.
+  String? get lastConversationProductionAudioUploadError =>
+      _lastConversationProductionAudioUploadError;
+
   /// Checks if the backend health endpoint is available.
   /// Verifica si el endpoint de salud del backend está disponible.
   Future<bool> checkHealth() async {
@@ -216,6 +222,7 @@ class ApiService {
 
   /// Uploads one learner WAV and returns its opaque backend reference.
   Future<String?> uploadConversationProductionAudio(String audioPath) async {
+    _lastConversationProductionAudioUploadError = null;
     final request = http.MultipartRequest(
       'POST',
       Uri.parse('$baseUrl/conversation-production-audio'),
@@ -224,11 +231,29 @@ class ApiService {
 
     final response = await http.Response.fromStream(await request.send());
     if (response.statusCode != 200) {
+      _lastConversationProductionAudioUploadError =
+          _productionAudioUploadErrorDetail(response);
       return null;
     }
 
     final data = jsonDecode(response.body) as Map<String, dynamic>;
     return data['audio_reference'] as String?;
+  }
+
+  String _productionAudioUploadErrorDetail(http.Response response) {
+    try {
+      final data = jsonDecode(response.body);
+      if (data is Map<String, dynamic>) {
+        final detail = data['detail'];
+        if (detail is String && detail.trim().isNotEmpty) {
+          return detail.trim();
+        }
+      }
+    } catch (_) {
+      // The status remains observable even if the body is not valid JSON.
+    }
+
+    return 'HTTP ${response.statusCode}';
   }
 
   /// Persists one complete group of real conversation productions.

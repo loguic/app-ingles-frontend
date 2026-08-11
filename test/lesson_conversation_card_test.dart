@@ -118,10 +118,12 @@ class FakeConversationApiService extends ApiService {
   FakeConversationApiService({
     this.saveResult = true,
     this.throwOnSave = false,
+    this.failedUploadAttemptsRemaining = 0,
   });
 
   final bool saveResult;
   final bool throwOnSave;
+  int failedUploadAttemptsRemaining;
 
   int saveCallCount = 0;
   String? lastUserId;
@@ -136,6 +138,12 @@ class FakeConversationApiService extends ApiService {
   int productionSubmissionCallCount = 0;
   final List<String> uploadedPaths = [];
   List<Map<String, dynamic>>? submittedProductions;
+
+  @override
+  String? get lastConversationProductionAudioUploadError =>
+      failedUploadAttemptsRemaining > 0
+      ? null
+      : 'PRODUCTION_AUDIO_DIR is not configured';
 
   @override
   Future<bool> saveConversationAttempt({
@@ -169,6 +177,10 @@ class FakeConversationApiService extends ApiService {
   Future<String?> uploadConversationProductionAudio(String audioPath) async {
     uploadCallCount += 1;
     uploadedPaths.add(audioPath);
+    if (failedUploadAttemptsRemaining > 0) {
+      failedUploadAttemptsRemaining -= 1;
+      return null;
+    }
     return 'production-audio://$uploadCallCount';
   }
 
@@ -693,9 +705,36 @@ void main() {
       await tester.pumpAndSettle();
     }
 
-    Future<void> completeLearnerTurn() async {
+    Future<void> completeLearnerTurn({
+      required String instruction,
+      required String supportHeading,
+    }) async {
+      expect(find.text('Responde con tus palabras'), findsOneWidget);
+      expect(find.text('Tu respuesta'), findsNothing);
+      expect(find.text('Qué debes hacer'), findsOneWidget);
+      expect(find.text(instruction), findsOneWidget);
+      expect(
+        find.text(
+          'Responde con información propia. No repitas la instrucción.',
+        ),
+        findsOneWidget,
+      );
+      if (supportHeading.isNotEmpty) {
+        expect(find.text(supportHeading), findsOneWidget);
+      }
       await tester.tap(find.text('Grabar mi respuesta'));
       await tester.pumpAndSettle();
+      expect(find.text('Qué debes hacer'), findsOneWidget);
+      expect(find.text(instruction), findsOneWidget);
+      expect(
+        find.text(
+          'Responde con información propia. No repitas la instrucción.',
+        ),
+        findsOneWidget,
+      );
+      if (supportHeading.isNotEmpty) {
+        expect(find.text(supportHeading), findsOneWidget);
+      }
       await tester.tap(find.text('Detener grabación'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('Reproducir mi voz'));
@@ -709,20 +748,41 @@ void main() {
 
     expect(find.text('Where are you from?'), findsNothing);
     await completePartnerTurn(revealTranscript: true);
+    expect(find.text('Palabras que pueden ayudarte'), findsOneWidget);
+    expect(
+      find.text('Úsalas como guía. No tienes que repetirlas exactamente.'),
+      findsOneWidget,
+    );
     expect(find.text('Place'), findsOneWidget);
     expect(find.text('I am from'), findsOneWidget);
-    await completeLearnerTurn();
+    await completeLearnerTurn(
+      instruction: 'Answer about your place.',
+      supportHeading: 'Palabras que pueden ayudarte',
+    );
 
     expect(find.text('What do you like doing?'), findsNothing);
     await completePartnerTurn();
+    expect(find.text('Puedes empezar con…'), findsOneWidget);
+    expect(find.text('Continúa con tu propia información.'), findsOneWidget);
     expect(find.text('I'), findsOneWidget);
     expect(find.text('Place'), findsNothing);
-    await completeLearnerTurn();
+    await completeLearnerTurn(
+      instruction: 'Answer about an interest.',
+      supportHeading: 'Puedes empezar con…',
+    );
 
     expect(find.text('Where do you usually do that?'), findsNothing);
     await completePartnerTurn();
     expect(find.text('Apoyo disponible'), findsNothing);
-    await completeLearnerTurn();
+    expect(find.text('Palabras que pueden ayudarte'), findsNothing);
+    expect(find.text('Puedes empezar con…'), findsNothing);
+    expect(find.text('Place'), findsNothing);
+    expect(find.text('I am from'), findsNothing);
+    expect(find.text('I'), findsNothing);
+    await completeLearnerTurn(
+      instruction: 'React in your own words.',
+      supportHeading: '',
+    );
 
     expect(find.text('It was nice talking with you. See you!'), findsNothing);
     await completePartnerTurn();
@@ -761,6 +821,101 @@ void main() {
         'audio_reference': 'production-audio://3',
       },
     ]);
+    expect(find.text('Conversación completada'), findsOneWidget);
+    expect(
+      find.text(
+        'Tres respuestas guardadas. Esto no implica comprensión ni progreso.',
+      ),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('retries one failed B181 save with the retained recordings', (
+    tester,
+  ) async {
+    final audioController = SequencedConversationAudioController();
+    final apiService = FakeConversationApiService(
+      failedUploadAttemptsRemaining: 2,
+    );
+    addTearDown(audioController.dispose);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SingleChildScrollView(
+            child: LessonConversationCard(
+              conversation: b181Conversation,
+              levelId: 'A1',
+              unitId: 'a1-u1',
+              lessonId: 'a1-u1-l2',
+              userId: 'b181-user',
+              audioService: audioController,
+              apiService: apiService,
+            ),
+          ),
+        ),
+      ),
+    );
+
+    Future<void> completePartnerTurn() async {
+      await tester.tap(find.text('Escuchar al interlocutor'));
+      await tester.pumpAndSettle();
+      audioController.completePlayback();
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Entendí, continuar'));
+      await tester.pumpAndSettle();
+    }
+
+    Future<void> completeLearnerTurn() async {
+      await tester.tap(find.text('Grabar mi respuesta'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Detener grabación'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Reproducir mi voz'));
+      await tester.pumpAndSettle();
+      audioController.completePlayback();
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.text('Avanzar al siguiente turno'));
+      await tester.tap(find.text('Avanzar al siguiente turno'));
+      await tester.pumpAndSettle();
+    }
+
+    for (var index = 0; index < 3; index += 1) {
+      await completePartnerTurn();
+      await completeLearnerTurn();
+    }
+    await completePartnerTurn();
+    await tester.pumpAndSettle();
+
+    expect(find.text('Conversación recorrida'), findsOneWidget);
+    expect(find.text('Reintentar guardado'), findsOneWidget);
+    expect(audioController.deletedRecordingPaths, isEmpty);
+    expect(apiService.productionSubmissionCallCount, 0);
+
+    await tester.tap(find.text('Reintentar guardado'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Reintentar guardado'), findsOneWidget);
+    expect(audioController.deletedRecordingPaths, isEmpty);
+    expect(apiService.productionSubmissionCallCount, 0);
+    expect(
+      find.text(
+        'No se pudo subir el audio: PRODUCTION_AUDIO_DIR is not configured',
+      ),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.text('Reintentar guardado'));
+    await tester.pumpAndSettle();
+
+    expect(apiService.uploadCallCount, 5);
+    expect(apiService.productionSubmissionCallCount, 1);
+    expect(audioController.deletedRecordingPaths, [
+      '/tmp/b181-1.wav',
+      '/tmp/b181-2.wav',
+      '/tmp/b181-3.wav',
+    ]);
+    expect(find.text('Reintentar guardado'), findsNothing);
     expect(find.text('Conversación completada'), findsOneWidget);
     expect(
       find.text(

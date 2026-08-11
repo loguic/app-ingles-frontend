@@ -92,6 +92,27 @@ class _LessonConversationCardState extends State<LessonConversationCard> {
         (turn) => turn.productionPrompt?.required ?? false,
       );
 
+  bool get _hasAllRequiredProductionRecordings {
+    final requiredPromptIds = widget.conversation.turns
+        .map((turn) => turn.productionPrompt)
+        .whereType<LearnerProductionPrompt>()
+        .where((prompt) => prompt.required)
+        .map((prompt) => prompt.id)
+        .toSet();
+
+    return requiredPromptIds.length == 3 &&
+        requiredPromptIds.every(_productionRecordingPaths.containsKey);
+  }
+
+  bool get _canRetryProductionSubmission =>
+      _usesProductionSubmission &&
+      _step == _ConversationPracticeStep.completed &&
+      !_isSavingAttempt &&
+      !_attemptSaved &&
+      _hasAllRequiredProductionRecordings &&
+      _persistenceMessage ==
+          'La conversación fue recorrida, pero no se pudieron guardar las respuestas.';
+
   bool get _isAudioFirstPartnerTurn =>
       _currentTurn.isPartner && widget.conversation.audioFirstPolicy != null;
 
@@ -601,6 +622,12 @@ class _LessonConversationCardState extends State<LessonConversationCard> {
       final audioReference = await _apiService
           .uploadConversationProductionAudio(path);
       if (audioReference == null) {
+        final detail = _apiService.lastConversationProductionAudioUploadError;
+        if (mounted && detail != null) {
+          setState(() {
+            _errorMessage = 'No se pudo subir el audio: $detail';
+          });
+        }
         return false;
       }
 
@@ -629,6 +656,46 @@ class _LessonConversationCardState extends State<LessonConversationCard> {
     }
 
     return saved;
+  }
+
+  Future<void> _retryProductionSubmission() async {
+    if (!_canRetryProductionSubmission) {
+      return;
+    }
+
+    setState(() {
+      _isSavingAttempt = true;
+      _errorMessage = null;
+      _persistenceMessage = 'Reintentando guardado de las respuestas...';
+    });
+
+    try {
+      final saved = await _saveProductionSubmission();
+
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _attemptSaved = saved;
+        _persistenceMessage = saved
+            ? 'Tres respuestas guardadas. Esto no implica comprensión ni progreso.'
+            : 'La conversación fue recorrida, pero no se pudieron guardar las respuestas.';
+      });
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _persistenceMessage =
+              'La conversación fue recorrida, pero no se pudieron guardar las respuestas.';
+        });
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSavingAttempt = false;
+        });
+      }
+    }
   }
 
   void _moveToNextTurn({bool updateState = true}) {
@@ -920,15 +987,28 @@ class _LessonConversationCardState extends State<LessonConversationCard> {
     final choiceSelector = hasChoices
         ? <Widget>[_buildChoiceSelector(), const SizedBox(height: 14)]
         : const <Widget>[];
-    final visibleSupport = _currentTurn.productionPrompt?.visibleSupport ?? [];
+    final productionPrompt = _currentTurn.productionPrompt;
+    final visibleSupport = productionPrompt?.visibleSupport ?? [];
+    final supportLevel = productionPrompt?.supportLevel;
+    final supportHeading = switch (supportLevel) {
+      'anchors' => 'Palabras que pueden ayudarte',
+      'initial_word' => 'Puedes empezar con…',
+      _ => 'Apoyo disponible',
+    };
+    final supportExplanation = switch (supportLevel) {
+      'anchors' => 'Úsalas como guía. No tienes que repetirlas exactamente.',
+      'initial_word' => 'Continúa con tu propia información.',
+      _ => null,
+    };
     final supportWidgets = visibleSupport.isEmpty
         ? const <Widget>[]
         : <Widget>[
-            Text(
-              'Apoyo disponible',
-              style: Theme.of(context).textTheme.labelLarge,
-            ),
+            Text(supportHeading, style: Theme.of(context).textTheme.labelLarge),
             const SizedBox(height: 6),
+            if (supportExplanation != null) ...[
+              Text(supportExplanation),
+              const SizedBox(height: 6),
+            ],
             Wrap(
               spacing: 8,
               runSpacing: 8,
@@ -944,6 +1024,10 @@ class _LessonConversationCardState extends State<LessonConversationCard> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           ...choiceSelector,
+          const Text(
+            'Responde con información propia. No repitas la instrucción.',
+          ),
+          const SizedBox(height: 14),
           ...supportWidgets,
           FilledButton.icon(
             onPressed:
@@ -964,6 +1048,10 @@ class _LessonConversationCardState extends State<LessonConversationCard> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           ...choiceSelector,
+          const Text(
+            'Responde con información propia. No repitas la instrucción.',
+          ),
+          const SizedBox(height: 14),
           ...supportWidgets,
           FilledButton.icon(
             onPressed: _isBusy ? null : _stopRecording,
@@ -978,6 +1066,10 @@ class _LessonConversationCardState extends State<LessonConversationCard> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         ...choiceSelector,
+        const Text(
+          'Responde con información propia. No repitas la instrucción.',
+        ),
+        const SizedBox(height: 14),
         ...supportWidgets,
         _buildSpeechRecognitionStatus(),
         if (_isRecognizingSpeech || _speechRecognitionResult != null)
@@ -1077,6 +1169,14 @@ class _LessonConversationCardState extends State<LessonConversationCard> {
                   ),
                 ),
               ],
+            ),
+          ],
+          if (_canRetryProductionSubmission) ...[
+            const SizedBox(height: 12),
+            OutlinedButton.icon(
+              onPressed: _retryProductionSubmission,
+              icon: const Icon(Icons.cloud_upload_outlined),
+              label: const Text('Reintentar guardado'),
             ),
           ],
           const SizedBox(height: 16),
@@ -1192,7 +1292,7 @@ class _LessonConversationCardState extends State<LessonConversationCard> {
                         Text(
                           _currentTurn.isPartner
                               ? 'Interlocutor'
-                              : 'Tu respuesta',
+                              : 'Responde con tus palabras',
                           style: const TextStyle(fontWeight: FontWeight.w700),
                         ),
                       ],
@@ -1200,11 +1300,28 @@ class _LessonConversationCardState extends State<LessonConversationCard> {
                     const SizedBox(height: 12),
                     if (!_isAudioFirstPartnerTurn ||
                         _isCurrentTranscriptRevealed)
-                      Text(
-                        _currentTurn.isLearner ? _learnerText : _currentTurn.en,
-                        style: Theme.of(context).textTheme.titleMedium
-                            ?.copyWith(fontWeight: FontWeight.w600),
-                      )
+                      if (_currentTurn.isLearner)
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Qué debes hacer',
+                              style: Theme.of(context).textTheme.labelLarge,
+                            ),
+                            const SizedBox(height: 6),
+                            Text(
+                              _learnerText,
+                              style: Theme.of(context).textTheme.titleMedium
+                                  ?.copyWith(fontWeight: FontWeight.w600),
+                            ),
+                          ],
+                        )
+                      else
+                        Text(
+                          _currentTurn.en,
+                          style: Theme.of(context).textTheme.titleMedium
+                              ?.copyWith(fontWeight: FontWeight.w600),
+                        )
                     else
                       const Text('Escucha primero la intervención.'),
                     if (_currentTurn.isLearner &&

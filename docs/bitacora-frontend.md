@@ -2177,3 +2177,262 @@ Validaciones vigentes:
 Commit técnico: `aabe4a4 fix corregir reintento y consigna B181`. El commit todavía no se declara publicado en `origin`.
 
 B181 continúa **PAUSADO EN PUERTA PEDAGÓGICA — NO CERRADO INTEGRALMENTE**. La pausa ya no responde a un fallo de interfaz ni a una revisión humana pendiente. Su reanudación depende de la futura construcción pedagógica canónica A1 y de la revisión del Constructor Pedagógico.
+
+## B183 — Checkpoint Visual Flutter: recorrido demo A1 de LOGUIC English
+
+Fecha: 2026-08-27
+
+### Estado del bloque
+
+Contrato definido. Implementación pendiente.
+
+Este bloque es el primer slice del Checkpoint Visual Flutter posterior a B182. Evoluciona la shell canónica existente y no crea una aplicación, navegación o arquitectura paralela.
+
+### Capacidad observable
+
+Al abrir LOGUIC English, el usuario puede iniciar desde `Inicio` un recorrido de demostración, explorar un mapa visual A1–C2, entrar en una portada demo A1, realizar una experiencia de escucha/pronunciación y recorrer una conversación breve. Puede avanzar y volver realmente entre todas las superficies sin que la aplicación atribuya progreso, aprendizaje, comprensión o mastery.
+
+El recorrido observable es:
+
+`Inicio → mapa visual A1–C2 → portada demo A1 → escucha/pronunciación → conversación breve → retorno`
+
+### Alcance visual exacto
+
+#### Inicio evolucionado
+
+- Conserva `HomeScreen` dentro de `MainShellScreen`.
+- Añade un CTA visible para iniciar o continuar exclusivamente la demostración visual.
+- Mantiene la identidad `LOGUIC English` y el eslogan `Escucha. Habla. Lee. Avanza.`.
+- No convierte los datos reales actualmente visibles en indicadores del recorrido demo.
+- El CTA no escribe progreso ni implica que el usuario haya iniciado un itinerario curricular.
+
+#### Mapa visual A1–C2
+
+- Sustituye, para la experiencia visual acordada, la presentación provisional basada únicamente en chips por un mapa claro de los seis niveles `A1`, `A2`, `B1`, `B2`, `C1` y `C2`.
+- `A1` aparece activo únicamente como puerta de entrada a la demostración.
+- `A2–C2` aparecen como horizonte del producto, sin porcentajes, bloqueos por rendimiento, estrellas, rachas, puntuaciones ni estados de dominio inventados.
+- La activación visual de `A1` significa `demo disponible`, no nivel asignado, recomendado, iniciado o dominado.
+
+#### Portada demo A1
+
+- Presenta una situación cotidiana provisional mediante contexto visual, título demo, propósito demostrativo y acceso claro a las dos experiencias del slice.
+- Expone accesos a `Escucha y pronunciación` y `Conversación breve`.
+- No presenta unidades, Skills, secuencias curriculares ni criterios pedagógicos como aprobados.
+- No reutiliza `a1-u1-l1` como contenido curricular ni editorial canónico.
+
+#### Escucha y pronunciación
+
+- Ofrece una experiencia ejecutable de escucha, grabación, reproducción de la propia voz y repetición.
+- Aplica la secuencia de ayudas: contexto visual → pista breve → transcript disponible después de la primera escucha → traducción al español como rescate opcional independiente.
+- Ni el transcript ni la traducción se muestran antes de completar la primera escucha.
+- Revelar transcript no revela automáticamente la traducción.
+- Completar la práctica no genera corrección, puntuación, progreso, aprendizaje ni evidencia de mastery.
+
+#### Conversación breve
+
+- Ofrece una conversación demo ejecutable y claramente provisional.
+- Reutiliza el flujo conversacional existente y mantiene separadas navegación conversacional, audio, reconocimiento técnico y significado pedagógico.
+- Aplica, cuando corresponda, la misma progresión de ayudas: contexto visual → pista breve → transcript tras escucha → traducción como rescate opcional.
+- Puede registrar audio temporal para ejecutar la experiencia, pero no lo sube ni persiste.
+- Su final declara únicamente que el recorrido demo terminó; no declara comprensión, éxito pedagógico, progreso ni mastery.
+
+#### Navegación real
+
+- Todas las superficies forman parte de la shell canónica o se abren desde ella mediante la navegación Flutter ya existente.
+- Existe avance explícito entre cada superficie y retorno a la superficie anterior.
+- El usuario puede volver desde escucha o conversación a la portada demo, desde la portada al mapa y desde el mapa a Inicio.
+- En escritorio se conserva la navegación lateral; en móvil y tablet, la navegación inferior.
+- No se incorpora un router nuevo para este slice.
+
+### Reutilización obligatoria
+
+La implementación debe evolucionar y reutilizar:
+
+- `MainShellScreen` como única shell canónica;
+- `LoguicTheme` y sus tokens visuales;
+- navegación responsive existente;
+- `PronunciationAudioController` y el servicio actual de audio/grabación;
+- `LessonPronunciationControls` para la mecánica de escucha y repetición, adaptándolo solo en lo mínimo necesario para el modo demo;
+- `LessonConversationCard` y su máquina de estados cuando su comportamiento coincida con la demo;
+- `ConversationFlowController` como única lógica de avance por turnos;
+- modelos de pronunciación y conversación compatibles, sin introducir un segundo grafo conversacional;
+- patrones existentes de inyección para aislar widgets de servicios externos en tests.
+
+No se copiarán máquinas de estados, coordinación de grabación, selección regional, avance conversacional ni lógica de reproducción en widgets exclusivos del checkpoint.
+
+### Modelo y fixture local provisional
+
+El slice utiliza un modelo de presentación y una fixture local mínimos, exclusivos del checkpoint visual.
+
+Condiciones obligatorias:
+
+- están separados de las fuentes y contratos curriculares;
+- no se cargan desde backend;
+- no constituyen ni anticipan el loader;
+- usan un namespace inequívoco de demo, por ejemplo `demo-visual-a1-*`;
+- nunca usan `a1-u1-l1` como identificador, alias o fuente editorial;
+- tampoco presentan el contenido B181 como currículo aprobado;
+- viven solo en memoria y no escriben progreso, intentos ni producciones;
+- no contienen Skills, mastery, scoring ni criterios de aprobación;
+- pueden contener únicamente el texto, contexto visual y referencias de audio imprescindibles para sentir el recorrido.
+
+Todas las superficies demo muestran de forma visible y legible la rotulación exacta:
+
+`Demostración visual · Contenido provisional · No representa el currículo A1 definitivo`
+
+### Fronteras semánticas obligatorias
+
+- demo visual ≠ currículo aprobado;
+- navegación ≠ progreso;
+- completar recorrido ≠ aprendizaje;
+- conversación realizada ≠ mastery;
+- audio grabado ≠ pronunciación evaluada;
+- transcript revelado ≠ comprensión demostrada;
+- traducción consultada ≠ fracaso o éxito pedagógico;
+- checkpoint visual ≠ cierre de B181.
+
+B181 permanece pausado en puerta pedagógica y este bloque no modifica su estado, contrato, contenido ni evidencia.
+
+### Fronteras técnicas
+
+Queda prohibido para B183:
+
+- modificar backend;
+- diseñar o implementar loader;
+- modificar endpoints, payloads o contratos API;
+- autenticar usuarios;
+- añadir adaptación;
+- realizar evaluación semántica o fonética;
+- guardar progreso real;
+- llamar a endpoints de progreso, intentos, uploads o producciones desde el recorrido demo;
+- convertir reconocimiento técnico en juicio pedagógico;
+- introducir persistencia local sustitutiva.
+
+### Estrategia mínima para audio y conversación
+
+- La fixture demo se adapta a los modelos consumidos por los componentes actuales en vez de crear modelos paralelos de ejecución.
+- `LessonPronunciationControls` continúa siendo propietario del flujo escuchar → grabar → revisar → repetir.
+- `ConversationFlowController` continúa resolviendo turnos y finalización.
+- `LessonConversationCard` conserva una única implementación del flujo visual conversacional. Si necesita distinguir la demo, se incorporará una política interna, explícita e inyectable de ejecución sin persistencia cuyo valor por defecto preserve íntegramente el comportamiento actual.
+- La política demo no simula respuestas exitosas del backend: desactiva de forma explícita uploads y submissions.
+- Cualquier extracción de widgets será limitada a presentación reutilizable; no duplicará estado o efectos.
+- Los archivos temporales de grabación se limpian con el ciclo de vida existente y nunca se convierten en evidencia persistida.
+
+### Archivos candidatos para la implementación posterior
+
+La lista es orientativa y debe mantenerse mínima durante la implementación.
+
+Archivos existentes candidatos a modificar:
+
+- `lib/screens/main_shell_screen.dart`
+- `lib/screens/home_screen.dart`
+- `lib/theme/loguic_theme.dart`
+- `lib/widgets/lesson_pronunciation_controls.dart`
+- `lib/widgets/lesson_conversation_card.dart`
+- `test/main_shell_screen_test.dart`
+- `test/lesson_pronunciation_controls_test.dart`
+- `test/lesson_conversation_card_test.dart`
+- `test/widget_test.dart`
+- `docs/bitacora-frontend.md`
+
+Archivos candidatos a crear, solo si la composición lo requiere:
+
+- `lib/models/visual_demo_content.dart`
+- `lib/data/visual_demo_fixture.dart`
+- `lib/screens/visual_demo_lesson_screen.dart`
+- `lib/screens/visual_demo_listening_screen.dart`
+- `lib/screens/visual_demo_conversation_screen.dart`
+- `lib/widgets/visual_level_map.dart`
+- `lib/widgets/visual_demo_notice.dart`
+- `lib/widgets/visual_context_card.dart`
+- `test/visual_demo_fixture_test.dart`
+- `test/visual_demo_flow_test.dart`
+
+No se crean todos por defecto. Se favorecerá la menor cantidad que preserve separación de responsabilidades, legibilidad y reutilización.
+
+### Tests contractuales mínimos esperados
+
+La implementación posterior debe añadir pruebas focales que demuestren:
+
+1. Inicio muestra el CTA demo sin alterar la shell ni los cinco destinos.
+2. El CTA abre el mapa A1–C2.
+3. El mapa muestra exactamente A1, A2, B1, B2, C1 y C2.
+4. Solo A1 abre la demo y A2–C2 no muestran progreso, porcentajes ni mastery.
+5. Todas las superficies demo muestran la rotulación provisional exacta.
+6. Ningún ID de fixture coincide con `a1-u1-l1` ni usa el namespace curricular existente.
+7. La portada abre escucha y conversación y permite volver al mapa.
+8. Escucha exige una primera reproducción antes de ofrecer transcript.
+9. La traducción permanece oculta hasta una acción de rescate separada y no aparece al revelar transcript.
+10. Pronunciación reutiliza reproducción/grabación y puede repetirse sin persistencia.
+11. Conversación avanza mediante el flujo existente, termina con mensaje neutral y permite volver.
+12. La demo no invoca progreso, `conversation-attempts`, uploads ni `conversation-productions`.
+13. El comportamiento persistente heredado de pronunciación y conversación no cambia fuera del modo demo.
+14. La navegación se mantiene operativa en viewport móvil y escritorio.
+
+No forman parte de este contrato pruebas de contenido pedagógico, scoring, evaluación de pronunciación, backend ni loader.
+
+### Criterios de aceptación
+
+1. La aplicación ofrece el recorrido completo `Inicio → mapa → portada A1 → escucha/pronunciación → conversación → retorno`.
+2. `MainShellScreen` sigue siendo la única shell y conserva su navegación responsive.
+3. Inicio contiene un CTA demo claro y no atribuye progreso por utilizarlo.
+4. El mapa presenta A1–C2; A1 es la única demo activa y A2–C2 son horizonte neutral.
+5. Cada superficie demo muestra literalmente `Demostración visual · Contenido provisional · No representa el currículo A1 definitivo`.
+6. La fixture usa IDs `demo-visual-*`, nunca `a1-u1-l1`, y no se confunde con contenido curricular.
+7. La escucha/pronunciación es ejecutable mediante los servicios existentes.
+8. Las ayudas respetan el orden contexto visual → pista breve → transcript tras primera escucha → traducción opcional separada.
+9. La conversación breve es ejecutable mediante la lógica existente y no persiste producciones ni intentos.
+10. Finalizar cualquier superficie muestra lenguaje neutral, sin afirmar comprensión, corrección, aprendizaje, progreso o mastery.
+11. El recorrido permite avanzar y volver realmente en móvil y escritorio.
+12. No existen llamadas demo a backend, cambios de API, loader, autenticación, adaptación o evaluación.
+13. B181 permanece pausado y sin modificaciones.
+14. Las capacidades existentes fuera del modo demo conservan su comportamiento.
+
+### Definition of Done
+
+B183 estará terminado únicamente cuando:
+
+- el recorrido visual completo esté implementado y sea ejecutable;
+- la revisión de código confirme reutilización y ausencia de máquinas de estado duplicadas;
+- la fixture provisional esté aislada, rotulada y libre de IDs curriculares prohibidos;
+- audio, grabación y conversación funcionen sin persistencia en modo demo;
+- transcript y traducción cumplan la progresión contingente acordada;
+- los tests contractuales focales y regresiones relacionadas pasen mediante ejecución Bash-first;
+- `flutter analyze` pase mediante ejecución Bash-first;
+- una validación visual humana compruebe claridad A1, tono alentador, paleta índigo, navegación y legibilidad responsive;
+- la bitácora registre implementación, evidencia, límites y deuda consciente sin declarar currículo aprobado;
+- no haya cambios en backend, loader ni contratos API;
+- B181 continúe explícitamente pausado;
+- el worktree del bloque esté comprendido y listo para la decisión posterior de commit, sin que este contrato autorice commit o push.
+
+### Riesgos y mitigaciones mínimas
+
+- **Shell o navegación duplicadas:** integrar todas las entradas en `MainShellScreen` y conservar `Navigator` donde ya se utiliza.
+- **Contenido demo convertido en currículo:** namespace `demo-visual-*`, fixture separada y aviso literal visible.
+- **Persistencia accidental:** política demo explícita sin persistencia y dobles espía que fallen ante cualquier llamada prohibida.
+- **Lógica de audio duplicada:** reutilizar `LessonPronunciationControls` y `PronunciationAudioController`.
+- **Lógica conversacional duplicada:** reutilizar `LessonConversationCard` y `ConversationFlowController`, extrayendo solo presentación si resulta imprescindible.
+- **Regresiones B181:** comportamiento por defecto inalterado y pruebas focales heredadas ejecutadas después mediante Bash-first.
+- **Progreso o mastery inventados:** lenguaje neutral y mapa sin métricas, estados de dominio ni desbloqueos por rendimiento.
+- **Traducción presentada como ayuda primaria:** estado independiente, oculto y disponible solo tras la escucha.
+- **Arquitectura visual desechable:** componentes pequeños guiados por `LoguicTheme`, sin segunda librería de estilos ni shell paralela.
+- **Alcance expansivo:** limitar el slice a una sola situación demo y a las cinco superficies acordadas.
+
+### Fuera de alcance
+
+- currículo A1 definitivo y cualquier validación pedagógica de su contenido;
+- uso canónico de `a1-u1-l1`;
+- cierre o reanudación de B181;
+- mapa curricular funcional o desbloqueos reales A1–C2;
+- progreso, mastery, scoring, rachas, puntos o recomendaciones;
+- persistencia de navegación, escucha, grabaciones o conversación demo;
+- backend, base de datos, endpoints, contratos API y loader;
+- autenticación, perfiles y progreso familiar;
+- repaso adaptativo;
+- adaptación o personalización;
+- reconocimiento convertido en evaluación;
+- evaluación semántica, fonética o de intención;
+- contenido definitivo, múltiples lecciones demo o producción masiva de assets;
+- lectura guiada, misión de fluidez y Karaoke Fonético;
+- rediseño general de widgets no necesarios para el recorrido;
+- commit, push o despliegue como parte de la definición contractual.

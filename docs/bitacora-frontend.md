@@ -2436,3 +2436,81 @@ B183 estará terminado únicamente cuando:
 - lectura guiada, misión de fluidez y Karaoke Fonético;
 - rediseño general de widgets no necesarios para el recorrido;
 - commit, push o despliegue como parte de la definición contractual.
+
+## B183 — Cierre canónico y evidencia de publicación
+
+Fecha: 2026-08-28
+
+### Estado del bloque
+
+**CERRADO / DOCUMENTADO TÉCNICAMENTE / PUBLICADO**.
+
+B183 quedó cerrado técnicamente después de la validación humana end-to-end y de la publicación del commit técnico:
+
+`f49a0df4e308a6e22bdad53a087029fea0728a13 feat add provisional A1 visual demo checkpoint`
+
+El commit contiene exactamente los 11 paths funcionales y de tests de B183. El cierre se realizó con la herramienta segura `scripts/engineering/git_close.py`; no se utilizó un cierre Git manual.
+
+### Evidencia final
+
+- Validación humana end-to-end: PASS.
+- Recorrido confirmado: `Inicio → mapa A1–C2 → portada demo A1 → escucha/pronunciación → conversación breve → portada → mapa → Inicio`.
+- Audio del interlocutor audible.
+- Grabación y reproducción de la respuesta propias funcionales.
+- Retorno completo funcional.
+- Sin progreso, mastery ni completion curricular ficticios.
+- `test/lesson_pronunciation_controls_test.dart`: 8 passed.
+- `flutter analyze`: `No issues found! (ran in 1.3s)`.
+- `flutter test` completo: 51 passed.
+- `git diff --check`: PASS.
+- Postflight técnico final: 0 BLOCKING, 4 NONBLOCKING.
+
+### Correcciones runtime cerradas
+
+1. Las referencias demo usan rutas `audio/...` compatibles con `AssetSource`, no `assets/audio/...`.
+2. `onPlaybackCompleted` es la evidencia explícita de finalización satisfactoria.
+3. `LessonConversationCard` no desbloquea audio-first ante errores de reproducción.
+4. `LessonPronunciationControls` conserva `onPlaybackChanged` solo para estado activo/inactivo; `onPlaybackCompleted` controla escucha completada, `onReferenceListened` y avance.
+5. `demoMode` desactiva efectivamente toda persistencia aunque se omita `persistencePolicy`.
+
+### Contratos y límites preservados
+
+- B183 es un checkpoint visual provisional.
+- La fixture `demo-visual-*` no es currículo A1 canónico.
+- `a1-u1-l1` no queda sustituido ni definido por esta demo.
+- A1 se presenta como demo disponible; A2–C2 permanecen como horizonte neutral.
+- `MainShellScreen` sigue siendo la única shell principal.
+- No se introducen progreso, mastery, evaluación pedagógica ni persistencia curricular.
+- La escalera de ayuda permanece: contexto visual → pista breve → transcript tras escucha válida → español como rescate opcional.
+- B181 permanece **PAUSADO EN PUERTA PEDAGÓGICA — NO CERRADO INTEGRALMENTE**.
+
+### NONBLOCKING aceptados
+
+- N1: los WAV provisionales reutilizan nombres históricos `a1-u1-l2_*`.
+- N2: una grabación abandonada puede existir temporalmente hasta `dispose` del servicio de audio de la portada demo.
+- N3: no existe test automatizado específico del recorrido completo en ambos extremos responsive; existe validación visual humana.
+- N4: Home conserva reads backend heredados alrededor del CTA demo; las rutas demo son locales y no introducen writes backend.
+
+## Infraestructura Git segura del frontend
+
+La infraestructura se registra separadamente de B183 funcional.
+
+### Incorporación
+
+- `scripts/engineering/git_close.py`
+- `tests/test_git_close.py`
+
+Ambos archivos proceden de la capacidad segura equivalente ya utilizada en LOGUIC backend. El helper usa Python estándar y Git, permanece aislado de Flutter y no forma parte del runtime productivo ni del alcance funcional de B183.
+
+### Evidencia y publicación
+
+- Suite portada: 41 passed.
+- Commit bootstrap publicado: `004b0bdb281d9a29bc1a6550f091fd24047d2078`.
+- El helper evita cierres Git manuales futuros.
+- Ambas copias deben mantenerse alineadas hasta que exista una necesidad real de extracción compartida.
+
+Esta anotación documenta la incorporación de infraestructura; no la mezcla con el contrato pedagógico o visual de B183.
+
+### Estado documental
+
+Esta entrada prepara la bitácora local. No declara todavía este cambio documental como publicado.

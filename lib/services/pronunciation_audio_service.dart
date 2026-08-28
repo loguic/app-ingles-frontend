@@ -13,6 +13,8 @@ abstract interface class PronunciationAudioController {
 
   Stream<String?> get onPlaybackChanged;
 
+  Stream<String> get onPlaybackCompleted => const Stream.empty();
+
   Stream<String?> get onRecordingChanged;
 
   Future<bool> hasMicrophonePermission();
@@ -45,6 +47,10 @@ class PronunciationAudioService implements PronunciationAudioController {
     // Clears the shared playback state when the audio reaches its end.
     // Limpia el estado compartido cuando el audio llega al final.
     _completionSubscription = _audioPlayer.onPlayerComplete.listen((_) {
+      final completedPlaybackId = _activePlaybackId;
+      if (completedPlaybackId != null && !_playbackCompletedController.isClosed) {
+        _playbackCompletedController.add(completedPlaybackId);
+      }
       _setActivePlayback(null);
     });
   }
@@ -57,6 +63,9 @@ class PronunciationAudioService implements PronunciationAudioController {
 
   final StreamController<String?> _recordingIdController =
       StreamController<String?>.broadcast();
+
+  final StreamController<String> _playbackCompletedController =
+      StreamController<String>.broadcast();
 
   final Set<String> _temporaryRecordingPaths = {};
 
@@ -126,6 +135,9 @@ class PronunciationAudioService implements PronunciationAudioController {
   /// Notifica a todos los controles cuando cambia la reproducción activa.
   @override
   Stream<String?> get onPlaybackChanged => _playbackIdController.stream;
+
+  @override
+  Stream<String> get onPlaybackCompleted => _playbackCompletedController.stream;
 
   /// Notifies all controls when the active recording changes.
   /// Notifica a todos los controles cuando cambia la grabación activa.
@@ -342,5 +354,6 @@ class PronunciationAudioService implements PronunciationAudioController {
     await _audioPlayer.dispose();
     await _playbackIdController.close();
     await _recordingIdController.close();
+    await _playbackCompletedController.close();
   }
 }

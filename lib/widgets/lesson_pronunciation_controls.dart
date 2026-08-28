@@ -20,6 +20,8 @@ class LessonPronunciationControls extends StatefulWidget {
     required this.exampleId,
     required this.pronunciations,
     this.audioService,
+    this.demoMode = false,
+    this.onReferenceListened,
     super.key,
   });
 
@@ -35,6 +37,12 @@ class LessonPronunciationControls extends StatefulWidget {
   /// Servicio de audio compartido y administrado por la pantalla de la lección.
   final PronunciationAudioController? audioService;
 
+  /// Uses neutral copy and exposes no learning or evaluation claims.
+  final bool demoMode;
+
+  /// Notifies when the selected reference finishes playing.
+  final VoidCallback? onReferenceListened;
+
   @override
   State<LessonPronunciationControls> createState() =>
       _LessonPronunciationControlsState();
@@ -46,6 +54,7 @@ class _LessonPronunciationControlsState
   late final bool _ownsAudioService;
 
   StreamSubscription<String?>? _playbackSubscription;
+  StreamSubscription<String>? _playbackCompletedSubscription;
   StreamSubscription<String?>? _recordingSubscription;
 
   String? _activePlaybackId;
@@ -79,6 +88,19 @@ class _LessonPronunciationControlsState
   /// Returns the learner instruction for the current guided step.
   /// Devuelve la instrucción para la etapa guiada actual.
   String get _guidedPracticeInstruction {
+    if (widget.demoMode) {
+      return switch (_guidedPracticeStep) {
+        _GuidedPracticeStep.listen => 'Paso 1: escucha la referencia.',
+        _GuidedPracticeStep.record => 'Paso 2: graba una repetición.',
+        _GuidedPracticeStep.review =>
+          'Paso 3: escucha tu voz junto a la referencia.',
+        _GuidedPracticeStep.selfAssess =>
+          'Paso 4: describe cómo te escuchaste, según tu percepción.',
+        _GuidedPracticeStep.repeat =>
+          'Recorrido de voz terminado: puedes probarlo otra vez.',
+      };
+    }
+
     return switch (_guidedPracticeStep) {
       _GuidedPracticeStep.listen =>
         'Paso 1: escucha la pronunciación de referencia.',
@@ -95,6 +117,18 @@ class _LessonPronunciationControlsState
   /// Returns brief guidance based on the learner's own perception.
   /// Devuelve una orientación breve según la percepción del estudiante.
   String? get _selfAssessmentFeedback {
+    if (widget.demoMode) {
+      return switch (_selfAssessment) {
+        _PronunciationSelfAssessment.good =>
+          'Esta es tu percepción personal. Puedes volver a escuchar la referencia.',
+        _PronunciationSelfAssessment.almost =>
+          'Puedes probar otra vez, más despacio y sin puntuación.',
+        _PronunciationSelfAssessment.repeat =>
+          'La repetición está disponible cuando quieras volver a intentarlo.',
+        null => null,
+      };
+    }
+
     return switch (_selfAssessment) {
       _PronunciationSelfAssessment.good =>
         '¡Buen trabajo! Mantén el ritmo y vuelve a escuchar la referencia para consolidarlo.',
@@ -197,31 +231,24 @@ class _LessonPronunciationControlsState
         return;
       }
 
-      final completedPlaybackId = _activePlaybackId;
-      final activeReferenceId = widget.pronunciations.isEmpty
-          ? null
-          : _referencePlaybackId(_activePronunciation);
-
       setState(() {
         _activePlaybackId = playbackId;
-
-        // Advances only after the selected reference audio has completed.
-        // Avanza solo cuando termina el audio de referencia seleccionado.
-        if (activeReferenceId != null &&
-            completedPlaybackId == activeReferenceId &&
-            playbackId == null &&
-            _guidedPracticeStep == _GuidedPracticeStep.listen) {
-          _guidedPracticeStep = _GuidedPracticeStep.record;
-        }
-
-        // Opens self-assessment after the learner audio has finished.
-        // Abre la autoevaluación cuando termina el audio del estudiante.
-        if (completedPlaybackId == 'recording:${widget.exampleId}' &&
-            playbackId == null &&
-            _guidedPracticeStep == _GuidedPracticeStep.review) {
-          _guidedPracticeStep = _GuidedPracticeStep.selfAssess;
-        }
       });
+    });
+
+    _playbackCompletedSubscription = _audioService.onPlaybackCompleted.listen((playbackId) {
+      if (!mounted) return;
+      final referenceId = widget.pronunciations.isEmpty
+          ? null
+          : _referencePlaybackId(_activePronunciation);
+      if (playbackId == referenceId &&
+          _guidedPracticeStep == _GuidedPracticeStep.listen) {
+        setState(() => _guidedPracticeStep = _GuidedPracticeStep.record);
+        widget.onReferenceListened?.call();
+      } else if (playbackId == 'recording:${widget.exampleId}' &&
+          _guidedPracticeStep == _GuidedPracticeStep.review) {
+        setState(() => _guidedPracticeStep = _GuidedPracticeStep.selfAssess);
+      }
     });
 
     // Synchronizes this control with shared microphone usage.
@@ -537,6 +564,7 @@ class _LessonPronunciationControlsState
   @override
   void dispose() {
     _playbackSubscription?.cancel();
+    _playbackCompletedSubscription?.cancel();
     _recordingSubscription?.cancel();
 
     // Only disposes services created internally by this widget.
@@ -589,7 +617,9 @@ class _LessonPronunciationControlsState
                             : null,
                       ),
                       const SizedBox(height: 2),
-                      Text(pronunciation.ipa),
+                      if (!widget.demoMode ||
+                          _guidedPracticeStep != _GuidedPracticeStep.listen)
+                        Text(pronunciation.ipa),
                     ],
                   ),
                 ),
@@ -617,7 +647,11 @@ class _LessonPronunciationControlsState
         Text(_guidedPracticeInstruction),
         if (_guidedPracticeStep == _GuidedPracticeStep.selfAssess) ...[
           const SizedBox(height: 8),
-          const Text('Elige la opción que mejor describa cómo te escuchaste:'),
+          Text(
+            widget.demoMode
+                ? 'Elige una impresión subjetiva; no es una evaluación:'
+                : 'Elige la opción que mejor describa cómo te escuchaste:',
+          ),
           const SizedBox(height: 8),
           Wrap(
             spacing: 8,

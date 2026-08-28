@@ -12,6 +12,7 @@ import 'package:flutter_test/flutter_test.dart';
 /// Simula audio sin activar complementos nativos.
 class FakeConversationAudioController implements PronunciationAudioController {
   final _playback = StreamController<String?>.broadcast();
+  final _completed = StreamController<String>.broadcast();
   final _recording = StreamController<String?>.broadcast();
   final List<String> deletedRecordingPaths = [];
 
@@ -23,6 +24,9 @@ class FakeConversationAudioController implements PronunciationAudioController {
 
   @override
   Stream<String?> get onPlaybackChanged => _playback.stream;
+
+  @override
+  Stream<String> get onPlaybackCompleted => _completed.stream;
 
   @override
   Stream<String?> get onRecordingChanged => _recording.stream;
@@ -49,8 +53,10 @@ class FakeConversationAudioController implements PronunciationAudioController {
   }
 
   void completePlayback() {
+    final completedId = activePlaybackId;
     activePlaybackId = null;
     _playback.add(null);
+    if (completedId != null) _completed.add(completedId);
   }
 
   @override
@@ -80,6 +86,7 @@ class FakeConversationAudioController implements PronunciationAudioController {
   @override
   Future<void> dispose() async {
     await _playback.close();
+    await _completed.close();
     await _recording.close();
   }
 }

@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
 
+import '../services/pronunciation_audio_service.dart';
 import '../theme/loguic_theme.dart';
 import '../widgets/info_card.dart';
 import '../widgets/lesson_list_card.dart';
-import '../widgets/level_selector_card.dart';
 import '../widgets/unit_list_card.dart';
 import 'home_screen.dart';
 import 'lesson_detail_screen.dart';
+import 'visual_demo_screens.dart';
 
 typedef LearnDestinationBuilder =
     Widget Function(BuildContext context, ValueChanged<String> openLesson);
@@ -17,11 +18,13 @@ class MainShellScreen extends StatefulWidget {
   const MainShellScreen({
     this.learnDestinationBuilder,
     this.lessonScreenBuilder,
+    this.demoAudioController,
     super.key,
   });
 
   final LearnDestinationBuilder? learnDestinationBuilder;
   final LessonScreenBuilder? lessonScreenBuilder;
+  final PronunciationAudioController? demoAudioController;
 
   @override
   State<MainShellScreen> createState() => _MainShellScreenState();
@@ -31,17 +34,26 @@ class _MainShellScreenState extends State<MainShellScreen> {
   static const double _desktopBreakpoint = 900;
 
   int _selectedDestination = 0;
-  String _selectedLevelCode = 'A1';
+  final String _selectedLevelCode = 'A1';
   String? _selectedUnitId;
   String? _selectedLessonId;
   int _homeRefreshCounter = 0;
 
-  void _selectLevel(String levelCode) {
-    setState(() {
-      _selectedLevelCode = levelCode;
-      _selectedUnitId = null;
-      _selectedLessonId = null;
-    });
+  void _showVisualMap() {
+    setState(() => _selectedDestination = 1);
+  }
+
+  void _showHome() {
+    setState(() => _selectedDestination = 0);
+  }
+
+  Future<void> _openVisualDemo() {
+    return Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (context) =>
+            VisualDemoLessonScreen(audioController: widget.demoAudioController),
+      ),
+    );
   }
 
   void _selectUnit(String unitId) {
@@ -80,13 +92,16 @@ class _MainShellScreenState extends State<MainShellScreen> {
 
   List<Widget> _destinations() {
     return [
-      HomeScreen(refreshCounter: _homeRefreshCounter),
+      HomeScreen(
+        refreshCounter: _homeRefreshCounter,
+        onExploreDemo: _showVisualMap,
+      ),
       _ShellDestination(
         title: 'Niveles',
-        description: 'Elige el nivel desde el que quieres aprender.',
-        child: LevelSelectorCard(
-          selectedLevelCode: _selectedLevelCode,
-          onLevelSelected: _selectLevel,
+        description: 'Explora el horizonte de LOGUIC English.',
+        child: VisualLevelMap(
+          onOpenDemo: _openVisualDemo,
+          onBackToHome: _showHome,
         ),
       ),
       widget.learnDestinationBuilder?.call(context, _openLesson) ??

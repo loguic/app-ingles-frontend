@@ -11,12 +11,15 @@ import 'package:flutter_test/flutter_test.dart';
 class FakePronunciationAudioController implements PronunciationAudioController {
   final StreamController<String?> _playbackController =
       StreamController<String?>.broadcast();
+  final StreamController<String> _completedController =
+      StreamController<String>.broadcast();
 
   final StreamController<String?> _recordingController =
       StreamController<String?>.broadcast();
 
   bool microphonePermission = true;
   String? recordingResultPath = '/tmp/pronunciation-test.wav';
+  bool failNextReference = false;
 
   @override
   String? activePlaybackId;
@@ -26,6 +29,9 @@ class FakePronunciationAudioController implements PronunciationAudioController {
 
   @override
   Stream<String?> get onPlaybackChanged => _playbackController.stream;
+
+  @override
+  Stream<String> get onPlaybackCompleted => _completedController.stream;
 
   @override
   Stream<String?> get onRecordingChanged => _recordingController.stream;
@@ -39,6 +45,12 @@ class FakePronunciationAudioController implements PronunciationAudioController {
   Future<void> playReference(String audioAsset, {String? playbackId}) async {
     activePlaybackId = playbackId ?? 'reference:$audioAsset';
     _playbackController.add(activePlaybackId);
+    if (failNextReference) {
+      failNextReference = false;
+      activePlaybackId = null;
+      _playbackController.add(null);
+      throw StateError('reference playback failed');
+    }
   }
 
   @override
@@ -56,8 +68,10 @@ class FakePronunciationAudioController implements PronunciationAudioController {
   /// Simulates the natural completion of the active audio.
   /// Simula la finalización natural del audio activo.
   void completePlayback() {
+    final completedId = activePlaybackId;
     activePlaybackId = null;
     _playbackController.add(null);
+    if (completedId != null) _completedController.add(completedId);
   }
 
   @override
@@ -85,6 +99,7 @@ class FakePronunciationAudioController implements PronunciationAudioController {
   @override
   Future<void> dispose() async {
     await _playbackController.close();
+    await _completedController.close();
     await _recordingController.close();
   }
 }
@@ -125,6 +140,21 @@ void main() {
     expect(find.text('Grabar mi voz'), findsOneWidget);
     expect(find.text('Grabando...'), findsNothing);
     expect(find.text('Grabación disponible'), findsNothing);
+  });
+
+  testWidgets('failed reference playback does not unlock guided practice', (
+    tester,
+  ) async {
+    final audioController = FakePronunciationAudioController()
+      ..failNextReference = true;
+    await tester.pumpWidget(buildTestWidget(audioController));
+
+    await tester.tap(find.byTooltip('Escuchar pronunciación').first);
+    await tester.pumpAndSettle();
+
+    expect(find.text('No se pudo reproducir el audio. Inténtalo nuevamente.'), findsOneWidget);
+    expect(find.text('Paso 1: escucha la pronunciación de referencia.'), findsOneWidget);
+    expect(find.text('Paso 2: graba tu repetición.'), findsNothing);
   });
 
   testWidgets('shows the recording state after starting', (tester) async {

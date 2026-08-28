@@ -4,12 +4,18 @@ import '../theme/loguic_theme.dart';
 import '../widgets/conversation_history_card.dart';
 import '../widgets/conversation_productions_card.dart';
 import '../widgets/progress_summary_card.dart';
+import 'visual_demo_screens.dart';
 
 /// Initial home screen shown when the app starts.
 /// Pantalla inicial que se muestra al arrancar la aplicación.
 class HomeScreen extends StatelessWidget {
-  const HomeScreen({this.refreshCounter = 0, super.key});
+  const HomeScreen({
+    required this.onExploreDemo,
+    this.refreshCounter = 0,
+    super.key,
+  });
 
+  final VoidCallback onExploreDemo;
   final int refreshCounter;
 
   @override
@@ -31,6 +37,8 @@ class HomeScreen extends StatelessWidget {
                 children: [
                   _buildHeader(context),
                   const SizedBox(height: 22),
+                  _buildDemoInvitation(context),
+                  const SizedBox(height: 18),
                   _ProgressHighlight(refreshCounter: refreshCounter),
                   const SizedBox(height: 18),
                   if (showSecondaryColumns)
@@ -53,6 +61,47 @@ class HomeScreen extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+
+  Widget _buildDemoInvitation(BuildContext context) {
+    return Container(
+      key: const Key('home-visual-demo-invitation'),
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(LoguicTheme.cardRadius),
+        border: Border.all(color: const Color(0xFFD9D5FF)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const VisualDemoNotice(),
+          const SizedBox(height: 16),
+          Text(
+            'Siente una primera conversación',
+            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+              color: LoguicTheme.deepNavy,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 6),
+          const Text(
+            'Explora el mapa, escucha una pregunta y prueba una respuesta '
+            'sin guardar resultados.',
+          ),
+          const SizedBox(height: 14),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: FilledButton.icon(
+              key: const Key('explore-visual-demo'),
+              onPressed: onExploreDemo,
+              icon: const Icon(Icons.explore_outlined),
+              label: const Text('Explorar demostración'),
+            ),
+          ),
+        ],
+      ),
     );
   }
 

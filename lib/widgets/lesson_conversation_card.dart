@@ -19,6 +19,9 @@ enum _ConversationPracticeStep {
   completed,
 }
 
+/// Controls whether completing a conversation may trigger remote effects.
+enum ConversationPersistencePolicy { inherited, disabled }
+
 /// Runs one conversation and persists each completed attempt.
 /// Ejecuta una conversación y persiste cada intento completado.
 class LessonConversationCard extends StatefulWidget {
@@ -31,6 +34,8 @@ class LessonConversationCard extends StatefulWidget {
     required this.audioService,
     this.apiService,
     this.speechRecognitionController,
+    this.persistencePolicy = ConversationPersistencePolicy.inherited,
+    this.demoMode = false,
     super.key,
   });
 
@@ -49,6 +54,11 @@ class LessonConversationCard extends StatefulWidget {
   /// Reconocimiento opcional separado de la evaluación pedagógica.
   final SpeechRecognitionController? speechRecognitionController;
 
+  final ConversationPersistencePolicy persistencePolicy;
+
+  /// Uses contingent rescue controls and neutral completion copy.
+  final bool demoMode;
+
   @override
   State<LessonConversationCard> createState() => _LessonConversationCardState();
 }
@@ -59,6 +69,7 @@ class _LessonConversationCardState extends State<LessonConversationCard> {
   ApiService get _apiService => widget.apiService ?? _defaultApiService;
 
   StreamSubscription<String?>? _playbackSubscription;
+  StreamSubscription<String>? _playbackCompletedSubscription;
   StreamSubscription<String?>? _recordingSubscription;
 
   late final ConversationFlowController _flowController;
@@ -69,6 +80,7 @@ class _LessonConversationCardState extends State<LessonConversationCard> {
   String? _recordingPath;
   final Map<String, String> _productionRecordingPaths = {};
   final Set<String> _revealedTranscriptTurnIds = {};
+  final Set<String> _revealedTranslationTurnIds = {};
   SpeechRecognitionResult? _speechRecognitionResult;
   bool _isRecognizingSpeech = false;
   String? _errorMessage;
@@ -85,7 +97,12 @@ class _LessonConversationCardState extends State<LessonConversationCard> {
 
   bool get _isRecording => _activeRecordingId == _currentTurn.id;
 
+  bool get _persistenceDisabled =>
+      widget.demoMode ||
+      widget.persistencePolicy == ConversationPersistencePolicy.disabled;
+
   bool get _usesProductionSubmission =>
+      !_persistenceDisabled &&
       widget.conversation.mode == 'free' &&
       widget.conversation.audioFirstPolicy != null &&
       widget.conversation.turns.any(
@@ -118,6 +135,9 @@ class _LessonConversationCardState extends State<LessonConversationCard> {
 
   bool get _isCurrentTranscriptRevealed =>
       _revealedTranscriptTurnIds.contains(_currentTurn.id);
+
+  bool get _isCurrentTranslationRevealed =>
+      _revealedTranslationTurnIds.contains(_currentTurn.id);
 
   String get _learnerText =>
       _flowController.selectedChoice?.en ?? _currentTurn.en;
@@ -167,7 +187,6 @@ class _LessonConversationCardState extends State<LessonConversationCard> {
 
       final completedPlaybackId = _activePlaybackId;
       final turn = _currentTurn;
-      final pronunciation = _activePronunciation;
 
       setState(() {
         _activePlaybackId = playbackId;
@@ -176,18 +195,25 @@ class _LessonConversationCardState extends State<LessonConversationCard> {
           return;
         }
 
-        if (_step == _ConversationPracticeStep.listenPartner &&
-            pronunciation != null &&
-            completedPlaybackId == _referencePlaybackId(turn, pronunciation)) {
-          _step = _ConversationPracticeStep.understandPartner;
-        }
-
         if (_step == _ConversationPracticeStep.reviewLearner &&
             completedPlaybackId == _recordingPlaybackId(turn)) {
           _hasReviewedRecording = true;
         }
       });
     });
+
+    _playbackCompletedSubscription = widget.audioService.onPlaybackCompleted.listen(
+      (playbackId) {
+      if (!mounted || _step != _ConversationPracticeStep.listenPartner) {
+        return;
+      }
+      final pronunciation = _activePronunciation;
+      if (pronunciation != null &&
+          playbackId == _referencePlaybackId(_currentTurn, pronunciation)) {
+        setState(() => _step = _ConversationPracticeStep.understandPartner);
+      }
+      },
+    );
 
     _recordingSubscription = widget.audioService.onRecordingChanged.listen((
       recordingId,
@@ -549,7 +575,7 @@ class _LessonConversationCardState extends State<LessonConversationCard> {
   }
 
   Future<void> _saveCompletedAttempt(int attemptSequence) async {
-    if (!mounted || _isSavingAttempt || _attemptSaved) {
+    if (_persistenceDisabled || !mounted || _isSavingAttempt || _attemptSaved) {
       return;
     }
 
@@ -606,6 +632,10 @@ class _LessonConversationCardState extends State<LessonConversationCard> {
   }
 
   Future<bool> _saveProductionSubmission() async {
+    if (_persistenceDisabled) {
+      return false;
+    }
+
     final productions = <Map<String, dynamic>>[];
 
     for (final turn in widget.conversation.turns) {
@@ -659,7 +689,7 @@ class _LessonConversationCardState extends State<LessonConversationCard> {
   }
 
   Future<void> _retryProductionSubmission() async {
-    if (!_canRetryProductionSubmission) {
+    if (_persistenceDisabled || !_canRetryProductionSubmission) {
       return;
     }
 
@@ -737,7 +767,9 @@ class _LessonConversationCardState extends State<LessonConversationCard> {
     }
 
     if (completedNow) {
-      unawaited(_saveCompletedAttempt(_attemptSequence));
+      if (!_persistenceDisabled) {
+        unawaited(_saveCompletedAttempt(_attemptSequence));
+      }
     }
   }
 
@@ -779,6 +811,7 @@ class _LessonConversationCardState extends State<LessonConversationCard> {
         _attemptSaved = false;
         _persistenceMessage = null;
         _revealedTranscriptTurnIds.clear();
+        _revealedTranslationTurnIds.clear();
 
         if (initialTurn == null) {
           _currentTurnIndex = 0;
@@ -888,6 +921,10 @@ class _LessonConversationCardState extends State<LessonConversationCard> {
           const SizedBox(height: 8),
         ],
         if (_isAudioFirstPartnerTurn && !_isCurrentTranscriptRevealed) ...[
+          if (widget.demoMode) ...[
+            const _DemoConversationHint(),
+            const SizedBox(height: 8),
+          ],
           TextButton.icon(
             onPressed: _isBusy
                 ? null
@@ -895,18 +932,41 @@ class _LessonConversationCardState extends State<LessonConversationCard> {
                     () => _revealedTranscriptTurnIds.add(_currentTurn.id),
                   ),
             icon: const Icon(Icons.closed_caption_outlined),
-            label: const Text('Mostrar transcript por accesibilidad'),
+            label: Text(
+              widget.demoMode
+                  ? 'Mostrar transcript'
+                  : 'Mostrar transcript por accesibilidad',
+            ),
           ),
           const SizedBox(height: 8),
         ],
-        if (_currentTurn.es != null) ...[
+        if (widget.demoMode &&
+            _isCurrentTranscriptRevealed &&
+            _currentTurn.es != null &&
+            !_isCurrentTranslationRevealed) ...[
+          TextButton.icon(
+            key: Key('demo-conversation-translation-${_currentTurn.id}'),
+            onPressed: _isBusy
+                ? null
+                : () => setState(
+                    () => _revealedTranslationTurnIds.add(_currentTurn.id),
+                  ),
+            icon: const Icon(Icons.translate),
+            label: const Text('Ver traducción de rescate'),
+          ),
+          const SizedBox(height: 8),
+        ],
+        if (_currentTurn.es != null &&
+            (!widget.demoMode || _isCurrentTranslationRevealed)) ...[
           Text(_currentTurn.es!, style: Theme.of(context).textTheme.bodyLarge),
           const SizedBox(height: 12),
         ],
         FilledButton.icon(
           onPressed: _isBusy ? null : _continueAfterPartner,
           icon: const Icon(Icons.check_circle_outline),
-          label: const Text('Entendí, continuar'),
+          label: Text(
+            widget.demoMode ? 'Seguir a mi respuesta' : 'Entendí, continuar',
+          ),
         ),
       ],
     );
@@ -1132,7 +1192,9 @@ class _LessonConversationCardState extends State<LessonConversationCard> {
           ),
           const SizedBox(height: 8),
           Text(
-            _usesProductionSubmission && !_attemptSaved
+            widget.demoMode
+                ? 'Demostración conversacional recorrida'
+                : _usesProductionSubmission && !_attemptSaved
                 ? 'Conversación recorrida'
                 : 'Conversación completada',
             style: Theme.of(context).textTheme.titleLarge?.copyWith(
@@ -1142,7 +1204,9 @@ class _LessonConversationCardState extends State<LessonConversationCard> {
           ),
           const SizedBox(height: 4),
           Text(
-            widget.conversation.mode == 'branching'
+            widget.demoMode
+                ? 'Este recorrido no guarda resultados ni evalúa tu respuesta.'
+                : widget.conversation.mode == 'branching'
                 ? 'Has completado la ruta conversacional elegida.'
                 : 'Has escuchado y respondido todos los turnos.',
             textAlign: TextAlign.center,
@@ -1193,6 +1257,7 @@ class _LessonConversationCardState extends State<LessonConversationCard> {
   @override
   void dispose() {
     _playbackSubscription?.cancel();
+    _playbackCompletedSubscription?.cancel();
     _recordingSubscription?.cancel();
     super.dispose();
   }
@@ -1324,7 +1389,8 @@ class _LessonConversationCardState extends State<LessonConversationCard> {
                         )
                     else
                       const Text('Escucha primero la intervención.'),
-                    if (_currentTurn.isLearner &&
+                    if (!widget.demoMode &&
+                        _currentTurn.isLearner &&
                         _learnerTranslation != null) ...[
                       const SizedBox(height: 6),
                       Text(_learnerTranslation!),
@@ -1344,6 +1410,31 @@ class _LessonConversationCardState extends State<LessonConversationCard> {
             ],
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _DemoConversationHint extends StatelessWidget {
+  const _DemoConversationHint();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      key: const Key('demo-conversation-hint'),
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surface,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: const Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Pista breve', style: TextStyle(fontWeight: FontWeight.w700)),
+          SizedBox(height: 3),
+          Text('La persona quiere saber de dónde eres.'),
+        ],
       ),
     );
   }

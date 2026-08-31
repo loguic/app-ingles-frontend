@@ -35,6 +35,8 @@ class LessonConversationCard extends StatefulWidget {
     this.apiService,
     this.speechRecognitionController,
     this.persistencePolicy = ConversationPersistencePolicy.inherited,
+    this.experienceAttemptId,
+    this.onAuthoritativeSourcePersisted,
     this.demoMode = false,
     super.key,
   });
@@ -55,6 +57,12 @@ class LessonConversationCard extends StatefulWidget {
   final SpeechRecognitionController? speechRecognitionController;
 
   final ConversationPersistencePolicy persistencePolicy;
+
+  /// Present only when this conversation is an exact v2 evidence source.
+  final String? experienceAttemptId;
+
+  /// Requests a fresh authoritative attempt snapshot after bound persistence.
+  final Future<void> Function()? onAuthoritativeSourcePersisted;
 
   /// Uses contingent rescue controls and neutral completion copy.
   final bool demoMode;
@@ -596,6 +604,7 @@ class _LessonConversationCardState extends State<LessonConversationCard> {
               mode: widget.conversation.mode,
               visitedTurnIds: _flowController.visitedTurnIds,
               selectedChoiceIds: _flowController.selectedChoiceIds,
+              experienceAttemptId: widget.experienceAttemptId,
             );
 
       if (!mounted || attemptSequence != _attemptSequence) {
@@ -612,6 +621,10 @@ class _LessonConversationCardState extends State<LessonConversationCard> {
             ? "Progreso conversacional guardado."
             : "La conversación terminó, pero no se pudo guardar el progreso.";
       });
+
+      if (saved && widget.experienceAttemptId != null) {
+        await widget.onAuthoritativeSourcePersisted?.call();
+      }
     } catch (_) {
       if (!mounted || attemptSequence != _attemptSequence) {
         return;
@@ -676,6 +689,7 @@ class _LessonConversationCardState extends State<LessonConversationCard> {
       lessonId: widget.lessonId,
       conversationId: widget.conversation.id,
       productions: productions,
+      experienceAttemptId: widget.experienceAttemptId,
     );
 
     if (saved) {
@@ -712,6 +726,10 @@ class _LessonConversationCardState extends State<LessonConversationCard> {
             ? 'Tres respuestas guardadas. Esto no implica comprensión ni progreso.'
             : 'La conversación fue recorrida, pero no se pudieron guardar las respuestas.';
       });
+
+      if (saved && widget.experienceAttemptId != null) {
+        await widget.onAuthoritativeSourcePersisted?.call();
+      }
     } catch (_) {
       if (mounted) {
         setState(() {

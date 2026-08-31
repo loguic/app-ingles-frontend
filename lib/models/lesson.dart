@@ -326,6 +326,221 @@ class LessonExercise {
   }
 }
 
+/// Describes the communicative outcome presented by a v2 lesson experience.
+class LessonExperienceMission {
+  const LessonExperienceMission({
+    required this.title,
+    required this.situation,
+    required this.observableOutcome,
+    required this.successCriteria,
+  });
+
+  final String title;
+  final String situation;
+  final String observableOutcome;
+  final List<String> successCriteria;
+
+  factory LessonExperienceMission.fromJson(Map<String, dynamic> json) {
+    return LessonExperienceMission(
+      title: json['title'] as String,
+      situation: json['situation'] as String,
+      observableOutcome: json['observable_outcome'] as String,
+      successCriteria: (json['success_criteria'] as List<dynamic>)
+          .cast<String>(),
+    );
+  }
+}
+
+/// One backend-ordered stage of a v2 lesson experience.
+class LessonExperienceStage {
+  const LessonExperienceStage({
+    required this.id,
+    required this.type,
+    required this.instruction,
+    required this.activityIds,
+    required this.mode,
+    required this.completionCondition,
+  });
+
+  final String id;
+
+  /// Kept verbatim so unknown backend values remain visible to the renderer.
+  final String type;
+  final String instruction;
+  final List<String> activityIds;
+  final String mode;
+  final String completionCondition;
+
+  factory LessonExperienceStage.fromJson(Map<String, dynamic> json) {
+    return LessonExperienceStage(
+      id: json['id'] as String,
+      type: json['type'] as String,
+      instruction: json['instruction'] as String,
+      activityIds: (json['activity_ids'] as List<dynamic>? ?? [])
+          .cast<String>(),
+      mode: json['mode'] as String,
+      completionCondition: json['completion_condition'] as String,
+    );
+  }
+}
+
+/// Language support associated with one or more experience stages.
+class LessonExperienceLanguageSupport {
+  const LessonExperienceLanguageSupport({
+    required this.id,
+    required this.type,
+    required this.en,
+    required this.stageIds,
+    this.es,
+    this.usageNote,
+    this.pronunciations = const [],
+  });
+
+  final String id;
+  final String type;
+  final String en;
+  final String? es;
+  final String? usageNote;
+  final List<LessonPronunciation> pronunciations;
+  final List<String> stageIds;
+
+  factory LessonExperienceLanguageSupport.fromJson(Map<String, dynamic> json) {
+    final pronunciations = json['pronunciations'] as List<dynamic>? ?? [];
+
+    return LessonExperienceLanguageSupport(
+      id: json['id'] as String,
+      type: json['type'] as String,
+      en: json['en'] as String,
+      es: json['es'] as String?,
+      usageNote: json['usage_note'] as String?,
+      pronunciations: pronunciations
+          .cast<Map<String, dynamic>>()
+          .map(LessonPronunciation.fromJson)
+          .toList(),
+      stageIds: (json['stage_ids'] as List<dynamic>).cast<String>(),
+    );
+  }
+}
+
+/// Defines the source mapping required by the v2 runtime UI.
+class LessonExperienceEvidenceDefinition {
+  const LessonExperienceEvidenceDefinition({
+    required this.id,
+    required this.stageId,
+    required this.activityId,
+    required this.evidenceType,
+    this.productionPromptId,
+    this.comprehensionExerciseId,
+  });
+
+  final String id;
+  final String stageId;
+  final String activityId;
+  final String evidenceType;
+  final String? productionPromptId;
+  final String? comprehensionExerciseId;
+
+  factory LessonExperienceEvidenceDefinition.fromJson(
+    Map<String, dynamic> json,
+  ) {
+    return LessonExperienceEvidenceDefinition(
+      id: json['id'] as String,
+      stageId: json['stage_id'] as String,
+      activityId: json['activity_id'] as String,
+      evidenceType: json['evidence_type'] as String,
+      productionPromptId: json['production_prompt_id'] as String?,
+      comprehensionExerciseId: json['comprehension_exercise_id'] as String?,
+    );
+  }
+}
+
+/// Optional listen-and-shadow preparation attached to one stage.
+class LessonPronunciationReinforcement {
+  const LessonPronunciationReinforcement({
+    required this.stageId,
+    required this.referenceText,
+    required this.listeningObjective,
+    required this.shadowing,
+    required this.pronunciations,
+    required this.phoneticTargets,
+  });
+
+  final String stageId;
+  final String referenceText;
+  final String listeningObjective;
+  final bool shadowing;
+  final List<LessonPronunciation> pronunciations;
+  final List<String> phoneticTargets;
+
+  factory LessonPronunciationReinforcement.fromJson(Map<String, dynamic> json) {
+    return LessonPronunciationReinforcement(
+      stageId: json['stage_id'] as String,
+      referenceText: json['reference_text'] as String,
+      listeningObjective: json['listening_objective'] as String,
+      shadowing: json['shadowing'] as bool? ?? true,
+      pronunciations: (json['pronunciations'] as List<dynamic>)
+          .cast<Map<String, dynamic>>()
+          .map(LessonPronunciation.fromJson)
+          .toList(),
+      phoneticTargets: (json['phonetic_targets'] as List<dynamic>? ?? [])
+          .cast<String>(),
+    );
+  }
+}
+
+/// Runtime content contract for a backend-authored lesson experience.
+class LessonExperience {
+  const LessonExperience({
+    required this.contractVersion,
+    required this.pedagogicalMethod,
+    required this.mission,
+    required this.stages,
+    required this.languageSupport,
+    required this.evidenceDefinitions,
+    this.pronunciationReinforcement,
+  });
+
+  final String contractVersion;
+  final String? pedagogicalMethod;
+  final LessonExperienceMission mission;
+  final List<LessonExperienceStage> stages;
+  final List<LessonExperienceLanguageSupport> languageSupport;
+  final List<LessonExperienceEvidenceDefinition> evidenceDefinitions;
+  final LessonPronunciationReinforcement? pronunciationReinforcement;
+
+  factory LessonExperience.fromJson(Map<String, dynamic> json) {
+    final stages = json['stages'] as List<dynamic>;
+    final languageSupport = json['language_support'] as List<dynamic>? ?? [];
+    final evidenceDefinitions = json['evidence_definitions'] as List<dynamic>;
+    final reinforcement = json['pronunciation_reinforcement'];
+
+    return LessonExperience(
+      contractVersion: json['contract_version'] as String,
+      pedagogicalMethod: json['pedagogical_method'] as String?,
+      mission: LessonExperienceMission.fromJson(
+        json['mission'] as Map<String, dynamic>,
+      ),
+      stages: stages
+          .cast<Map<String, dynamic>>()
+          .map(LessonExperienceStage.fromJson)
+          .toList(),
+      languageSupport: languageSupport
+          .cast<Map<String, dynamic>>()
+          .map(LessonExperienceLanguageSupport.fromJson)
+          .toList(),
+      evidenceDefinitions: evidenceDefinitions
+          .cast<Map<String, dynamic>>()
+          .map(LessonExperienceEvidenceDefinition.fromJson)
+          .toList(),
+      pronunciationReinforcement: reinforcement == null
+          ? null
+          : LessonPronunciationReinforcement.fromJson(
+              reinforcement as Map<String, dynamic>,
+            ),
+    );
+  }
+}
+
 /// Represents a lesson inside a learning unit.
 /// Representa una lección dentro de una unidad de aprendizaje.
 class Lesson {
@@ -338,6 +553,7 @@ class Lesson {
     required this.examples,
     this.conversations = const [],
     required this.exercises,
+    this.experience,
   });
 
   final String id;
@@ -348,6 +564,7 @@ class Lesson {
   final List<LessonExample> examples;
   final List<Conversation> conversations;
   final List<LessonExercise> exercises;
+  final LessonExperience? experience;
 
   factory Lesson.fromJson(Map<String, dynamic> json) {
     final examples = json['examples'] as List<dynamic>? ?? [];
@@ -372,6 +589,11 @@ class Lesson {
           .cast<Map<String, dynamic>>()
           .map(LessonExercise.fromJson)
           .toList(),
+      experience: json['experience'] == null
+          ? null
+          : LessonExperience.fromJson(
+              json['experience'] as Map<String, dynamic>,
+            ),
     );
   }
 }

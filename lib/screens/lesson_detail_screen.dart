@@ -9,6 +9,7 @@ import '../services/speech_recognition_factory.dart';
 import '../services/speech_recognition_service.dart';
 import '../widgets/info_card.dart';
 import '../widgets/lesson_detail_card.dart';
+import '../widgets/lesson_experience_card.dart';
 
 /// Screen that loads and displays the full detail of one lesson.
 /// Pantalla que carga y muestra el detalle completo de una lección.
@@ -17,19 +18,25 @@ class LessonDetailScreen extends StatefulWidget {
     required this.lessonId,
     required this.levelId,
     required this.unitId,
+    this.userId = 'demo-user',
+    this.apiService,
     super.key,
   });
 
   final String lessonId;
   final String levelId;
   final String unitId;
+  final String userId;
+  final ApiService? apiService;
 
   @override
   State<LessonDetailScreen> createState() => _LessonDetailScreenState();
 }
 
 class _LessonDetailScreenState extends State<LessonDetailScreen> {
-  static final ApiService _apiService = ApiService();
+  static final ApiService _defaultApiService = ApiService();
+
+  ApiService get _apiService => widget.apiService ?? _defaultApiService;
 
   final PronunciationAudioService _pronunciationAudioService =
       PronunciationAudioService();
@@ -74,8 +81,21 @@ class _LessonDetailScreenState extends State<LessonDetailScreen> {
                   );
                 }
 
+                final lesson = snapshot.data!;
+                if (lesson.experience != null) {
+                  return LessonExperienceCard(
+                    lesson: lesson,
+                    levelId: widget.levelId,
+                    unitId: widget.unitId,
+                    userId: widget.userId,
+                    audioService: _pronunciationAudioService,
+                    apiService: _apiService,
+                    speechRecognitionController: _speechRecognitionController,
+                  );
+                }
+
                 return LessonDetailCard(
-                  lesson: snapshot.data!,
+                  lesson: lesson,
                   levelId: widget.levelId,
                   unitId: widget.unitId,
                   pronunciationAudioService: _pronunciationAudioService,

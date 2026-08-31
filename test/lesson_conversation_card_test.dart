@@ -141,6 +141,8 @@ class FakeConversationApiService extends ApiService {
   String? lastMode;
   List<String>? lastVisitedTurnIds;
   List<String>? lastSelectedChoiceIds;
+  String? lastAttemptExperienceAttemptId;
+  String? lastProductionExperienceAttemptId;
   int uploadCallCount = 0;
   int productionSubmissionCallCount = 0;
   final List<String> uploadedPaths = [];
@@ -162,6 +164,7 @@ class FakeConversationApiService extends ApiService {
     required String mode,
     required List<String> visitedTurnIds,
     required List<String> selectedChoiceIds,
+    String? experienceAttemptId,
   }) async {
     saveCallCount += 1;
     lastUserId = userId;
@@ -172,6 +175,7 @@ class FakeConversationApiService extends ApiService {
     lastMode = mode;
     lastVisitedTurnIds = List<String>.from(visitedTurnIds);
     lastSelectedChoiceIds = List<String>.from(selectedChoiceIds);
+    lastAttemptExperienceAttemptId = experienceAttemptId;
 
     if (throwOnSave) {
       throw Exception("Simulated network failure");
@@ -199,9 +203,11 @@ class FakeConversationApiService extends ApiService {
     required String lessonId,
     required String conversationId,
     required List<Map<String, dynamic>> productions,
+    String? experienceAttemptId,
   }) async {
     productionSubmissionCallCount += 1;
     submittedProductions = productions;
+    lastProductionExperienceAttemptId = experienceAttemptId;
     return saveResult;
   }
 }
@@ -484,6 +490,7 @@ void main() {
     expect(apiService.lastMode, "guided");
     expect(apiService.lastVisitedTurnIds, ["partner-turn", "learner-turn"]);
     expect(apiService.lastSelectedChoiceIds, isEmpty);
+    expect(apiService.lastAttemptExperienceAttemptId, isNull);
 
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
@@ -519,6 +526,111 @@ void main() {
     expect(find.text('Conversación completada'), findsOneWidget);
     expect(find.text('Progreso conversacional guardado.'), findsOneWidget);
     expect(apiService.saveCallCount, 2);
+  });
+
+  testWidgets(
+    'adds explicit ExperienceAttempt binding and refreshes only after success',
+    (tester) async {
+      final audioController = FakeConversationAudioController();
+      final apiService = FakeConversationApiService();
+      var refreshCalls = 0;
+      addTearDown(audioController.dispose);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: SingleChildScrollView(
+              child: LessonConversationCard(
+                conversation: conversation,
+                levelId: 'A1',
+                unitId: 'a1-u1',
+                lessonId: 'a1-u1-l1',
+                userId: 'bound-user',
+                audioService: audioController,
+                apiService: apiService,
+                experienceAttemptId: 'experience-attempt-1',
+                onAuthoritativeSourcePersisted: () async {
+                  refreshCalls += 1;
+                },
+              ),
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.text('Escuchar al interlocutor'));
+      await tester.pumpAndSettle();
+      audioController.completePlayback();
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Entendí, continuar'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Grabar mi respuesta'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Detener grabación'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Reproducir mi voz'));
+      await tester.pumpAndSettle();
+      audioController.completePlayback();
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.text('Avanzar al siguiente turno'));
+      await tester.tap(find.text('Avanzar al siguiente turno'));
+      await tester.pumpAndSettle();
+
+      expect(apiService.lastAttemptExperienceAttemptId, 'experience-attempt-1');
+      expect(refreshCalls, 1);
+    },
+  );
+
+  testWidgets('does not refresh bound source state after failed persistence', (
+    tester,
+  ) async {
+    final audioController = FakeConversationAudioController();
+    final apiService = FakeConversationApiService(saveResult: false);
+    var refreshCalls = 0;
+    addTearDown(audioController.dispose);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SingleChildScrollView(
+            child: LessonConversationCard(
+              conversation: conversation,
+              levelId: 'A1',
+              unitId: 'a1-u1',
+              lessonId: 'a1-u1-l1',
+              userId: 'bound-user',
+              audioService: audioController,
+              apiService: apiService,
+              experienceAttemptId: 'experience-attempt-1',
+              onAuthoritativeSourcePersisted: () async {
+                refreshCalls += 1;
+              },
+            ),
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('Escuchar al interlocutor'));
+    await tester.pumpAndSettle();
+    audioController.completePlayback();
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Entendí, continuar'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Grabar mi respuesta'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Detener grabación'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Reproducir mi voz'));
+    await tester.pumpAndSettle();
+    audioController.completePlayback();
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('Avanzar al siguiente turno'));
+    await tester.tap(find.text('Avanzar al siguiente turno'));
+    await tester.pumpAndSettle();
+
+    expect(apiService.saveCallCount, 1);
+    expect(refreshCalls, 0);
   });
 
   testWidgets("follows the selected conversation branch", (tester) async {
@@ -675,6 +787,7 @@ void main() {
   ) async {
     final audioController = SequencedConversationAudioController();
     final apiService = FakeConversationApiService();
+    var authoritativeRefreshCalls = 0;
     addTearDown(audioController.dispose);
 
     await tester.pumpWidget(
@@ -689,6 +802,10 @@ void main() {
               userId: 'b181-user',
               audioService: audioController,
               apiService: apiService,
+              experienceAttemptId: 'experience-attempt-b181',
+              onAuthoritativeSourcePersisted: () async {
+                authoritativeRefreshCalls += 1;
+              },
             ),
           ),
         ),
@@ -798,6 +915,11 @@ void main() {
     expect(apiService.saveCallCount, 0);
     expect(apiService.uploadCallCount, 3);
     expect(apiService.productionSubmissionCallCount, 1);
+    expect(
+      apiService.lastProductionExperienceAttemptId,
+      'experience-attempt-b181',
+    );
+    expect(authoritativeRefreshCalls, 1);
     expect(apiService.uploadedPaths, [
       '/tmp/b181-1.wav',
       '/tmp/b181-2.wav',

@@ -101,6 +101,7 @@ class DemoAudioController implements PronunciationAudioController {
 
 class WriteSpyApiService extends ApiService {
   int writeCalls = 0;
+  final List<String?> experienceAttemptBindings = [];
 
   @override
   Future<bool> saveProgress({
@@ -126,8 +127,10 @@ class WriteSpyApiService extends ApiService {
     required String mode,
     required List<String> visitedTurnIds,
     required List<String> selectedChoiceIds,
+    String? experienceAttemptId,
   }) async {
     writeCalls += 1;
+    experienceAttemptBindings.add(experienceAttemptId);
     return true;
   }
 
@@ -145,8 +148,10 @@ class WriteSpyApiService extends ApiService {
     required String lessonId,
     required String conversationId,
     required List<Map<String, dynamic>> productions,
+    String? experienceAttemptId,
   }) async {
     writeCalls += 1;
+    experienceAttemptBindings.add(experienceAttemptId);
     return true;
   }
 }
@@ -343,6 +348,7 @@ void main() {
     expect(find.textContaining('mastery'), findsNothing);
     expect(find.textContaining('Progreso conversacional'), findsNothing);
     expect(apiService.writeCalls, 0);
+    expect(apiService.experienceAttemptBindings, isEmpty);
     expect(audioController.deletedPaths, ['/tmp/demo-visual-recording.wav']);
   });
 
@@ -393,6 +399,7 @@ void main() {
 
     expect(find.text('Demostración conversacional recorrida'), findsOneWidget);
     expect(apiService.writeCalls, 0);
+    expect(apiService.experienceAttemptBindings, isEmpty);
     expect(audioController.deletedPaths, ['/tmp/demo-visual-recording.wav']);
   });
 

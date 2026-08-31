@@ -2,6 +2,7 @@ import 'dart:convert';
 import '../models/level.dart';
 import '../models/unit.dart';
 import '../models/lesson.dart';
+import '../models/experience_attempt.dart';
 import "../models/conversation_attempt_record.dart";
 import "../models/conversation_production_record.dart";
 import "../models/progress_record.dart";
@@ -10,15 +11,30 @@ import 'package:http/http.dart' as http;
 /// Service responsible for communicating with the backend API.
 /// Servicio responsable de comunicarse con la API del backend.
 class ApiService {
+  ApiService({http.Client? client}) : _client = client;
+
   /// Base URL of the FastAPI backend running locally in Ubuntu VMware.
   /// URL base del backend FastAPI ejecutándose localmente en Ubuntu VMware.
   static const String baseUrl = 'http://127.0.0.1:8001/api/v1';
+
+  final http.Client? _client;
 
   String? _lastConversationProductionAudioUploadError;
 
   /// Last non-sensitive backend detail returned by a production-audio upload.
   String? get lastConversationProductionAudioUploadError =>
       _lastConversationProductionAudioUploadError;
+
+  Future<http.Response> _get(Uri uri) {
+    return _client?.get(uri) ?? http.get(uri);
+  }
+
+  Future<http.Response> _postJson(Uri uri, Map<String, dynamic> body) {
+    final headers = {'Content-Type': 'application/json'};
+    final encodedBody = jsonEncode(body);
+    return _client?.post(uri, headers: headers, body: encodedBody) ??
+        http.post(uri, headers: headers, body: encodedBody);
+  }
 
   /// Checks if the backend health endpoint is available.
   /// Verifica si el endpoint de salud del backend está disponible.
@@ -160,23 +176,21 @@ class ApiService {
     required String mode,
     required List<String> visitedTurnIds,
     required List<String> selectedChoiceIds,
+    String? experienceAttemptId,
   }) async {
     final uri = Uri.parse('$baseUrl/conversation-attempts');
 
-    final response = await http.post(
-      uri,
-      headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({
-        'user_id': userId,
-        'level_id': levelId,
-        'unit_id': unitId,
-        'lesson_id': lessonId,
-        'conversation_id': conversationId,
-        'mode': mode,
-        'visited_turn_ids': visitedTurnIds,
-        'selected_choice_ids': selectedChoiceIds,
-      }),
-    );
+    final response = await _postJson(uri, {
+      'user_id': userId,
+      'level_id': levelId,
+      'unit_id': unitId,
+      'lesson_id': lessonId,
+      'conversation_id': conversationId,
+      'mode': mode,
+      'visited_turn_ids': visitedTurnIds,
+      'selected_choice_ids': selectedChoiceIds,
+      'experience_attempt_id': ?experienceAttemptId,
+    });
 
     return response.statusCode == 200;
   }
@@ -264,21 +278,124 @@ class ApiService {
     required String lessonId,
     required String conversationId,
     required List<Map<String, dynamic>> productions,
+    String? experienceAttemptId,
   }) async {
-    final response = await http.post(
-      Uri.parse('$baseUrl/conversation-productions'),
-      headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({
+    final response =
+        await _postJson(Uri.parse('$baseUrl/conversation-productions'), {
+          'user_id': userId,
+          'level_id': levelId,
+          'unit_id': unitId,
+          'lesson_id': lessonId,
+          'conversation_id': conversationId,
+          'productions': productions,
+          'experience_attempt_id': ?experienceAttemptId,
+        });
+
+    return response.statusCode == 200;
+  }
+
+  /// Starts or resumes the authoritative attempt for one lesson experience.
+  Future<ExperienceAttemptRecord?> startOrResumeExperienceAttempt({
+    required String userId,
+    required String levelId,
+    required String unitId,
+    required String lessonId,
+  }) async {
+    final response = await _postJson(
+      Uri.parse('$baseUrl/experience-attempts'),
+      {
         'user_id': userId,
         'level_id': levelId,
         'unit_id': unitId,
         'lesson_id': lessonId,
-        'conversation_id': conversationId,
-        'productions': productions,
-      }),
+      },
     );
+    if (response.statusCode != 200) {
+      return null;
+    }
+    return ExperienceAttemptRecord.fromJson(
+      jsonDecode(response.body) as Map<String, dynamic>,
+    );
+  }
 
-    return response.statusCode == 200;
+  /// Gets the current backend-authoritative state of one attempt.
+  Future<ExperienceAttemptRecord?> getExperienceAttempt(
+    String attemptId,
+  ) async {
+    final response = await _get(
+      Uri.parse('$baseUrl/experience-attempts/$attemptId'),
+    );
+    if (response.statusCode != 200) {
+      return null;
+    }
+    return ExperienceAttemptRecord.fromJson(
+      jsonDecode(response.body) as Map<String, dynamic>,
+    );
+  }
+
+  /// Persists one backend-graded comprehension response source.
+  Future<ExperienceComprehensionResponseRecord?>
+  submitExperienceComprehensionResponse({
+    required String attemptId,
+    required String comprehensionExerciseId,
+    required int selectedIndex,
+  }) async {
+    final response = await _postJson(
+      Uri.parse(
+        '$baseUrl/experience-attempts/$attemptId/comprehension-responses/'
+        '$comprehensionExerciseId',
+      ),
+      {'selected_index': selectedIndex},
+    );
+    if (response.statusCode != 200) {
+      return null;
+    }
+    return ExperienceComprehensionResponseRecord.fromJson(
+      jsonDecode(response.body) as Map<String, dynamic>,
+    );
+  }
+
+  /// Starts the bound Direct English source using one stable client identity.
+  Future<DirectEnglishPublicSourceRecord?>
+  startDirectEnglishConstructionAttempt({
+    required String experienceAttemptId,
+    required String directEnglishAttemptId,
+  }) async {
+    final response = await _postJson(
+      Uri.parse(
+        '$baseUrl/experience-attempts/$experienceAttemptId/'
+        'direct-english-construction-attempts',
+      ),
+      {'attempt_id': directEnglishAttemptId},
+    );
+    if (response.statusCode != 200) {
+      return null;
+    }
+    return DirectEnglishPublicSourceRecord.fromJson(
+      jsonDecode(response.body) as Map<String, dynamic>,
+    );
+  }
+
+  /// Finalizes one Direct English source with learner-authored captures only.
+  Future<DirectEnglishPublicSourceRecord?>
+  finalizeDirectEnglishConstructionAttempt({
+    required String experienceAttemptId,
+    required String directEnglishAttemptId,
+    required List<DirectEnglishCapture> captures,
+  }) async {
+    final response = await _postJson(
+      Uri.parse(
+        '$baseUrl/experience-attempts/$experienceAttemptId/'
+        'direct-english-construction-attempts/$directEnglishAttemptId/finalize',
+      ),
+      {'captures': captures.map((capture) => capture.toJson()).toList()},
+    );
+    if (response.statusCode != 200) {
+      return null;
+    }
+    return DirectEnglishPublicSourceRecord.fromJson(
+      jsonDecode(response.body) as Map<String, dynamic>,
+    );
   }
 
   /// Gets the saved progress records for one user.

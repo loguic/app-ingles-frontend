@@ -36,6 +36,31 @@ class LessonExperienceCard extends StatefulWidget {
   State<LessonExperienceCard> createState() => _LessonExperienceCardState();
 }
 
+class _DirectSourceContext {
+  const _DirectSourceContext({
+    required this.sourceId,
+    required this.activityId,
+    required this.stageId,
+    required this.prompts,
+    required this.isV3,
+  });
+
+  final String sourceId;
+  final String activityId;
+  final String stageId;
+  final List<LearnerProductionPrompt> prompts;
+  final bool isV3;
+}
+
+class _DirectSourceState {
+  DirectEnglishPublicSourceRecord? source;
+  final Map<String, DirectEnglishCapture> captures = {};
+  final Map<String, String> text = {};
+  final Map<String, String> recordingPaths = {};
+  bool starting = false;
+  bool finalizing = false;
+}
+
 class _LessonExperienceCardState extends State<LessonExperienceCard> {
   static final ApiService _defaultApiService = ApiService();
   static const _supportedStageTypes = <String>{
@@ -47,24 +72,25 @@ class _LessonExperienceCardState extends State<LessonExperienceCard> {
     'evidence',
     'closure',
   };
+  static const _orderedDirectFunctions = <String>[
+    'guided',
+    'expanded',
+    'transfer',
+  ];
   static const _directFunctions = <String>{'guided', 'expanded', 'transfer'};
 
   ApiService get _apiService => widget.apiService ?? _defaultApiService;
   LessonExperience get _experience => widget.lesson.experience!;
 
   ExperienceAttemptRecord? _attempt;
-  DirectEnglishPublicSourceRecord? _directSource;
-  final Map<String, DirectEnglishCapture> _directCaptures = {};
-  final Map<String, String> _directText = {};
-  final Map<String, String> _directRecordingPaths = {};
+  final Map<String, _DirectSourceState> _directStateBySource = {};
   final Map<String, bool> _comprehensionFeedback = {};
   final Set<String> _submittingComprehension = {};
   final Set<String> _revealedSpanishSupport = {};
   bool _starting = true;
   bool _refreshing = false;
   bool _refreshPending = false;
-  bool _startingDirect = false;
-  bool _finalizingDirect = false;
+  String? _recordingDirectSourceId;
   String? _recordingDirectFunction;
   String? _errorMessage;
   bool _snapshotStale = false;
@@ -73,7 +99,11 @@ class _LessonExperienceCardState extends State<LessonExperienceCard> {
   String get _identity =>
       '${widget.userId}|${widget.levelId}|${widget.unitId}|${widget.lesson.id}';
 
-  String? get _stableDirectAttemptId =>
+  bool get _usesV3DirectEnglish =>
+      _experience.contractVersion == '3.0' &&
+      _experience.pedagogicalMethod == 'direct_english_construction';
+
+  String? get _legacyDirectAttemptId =>
       _attempt == null ? null : 'direct-english:${_attempt!.attemptId}';
 
   @override
@@ -112,22 +142,20 @@ class _LessonExperienceCardState extends State<LessonExperienceCard> {
   }
 
   void _discardAttemptLocalState() {
-    if (_recordingDirectFunction != null) {
+    if (_recordingDirectSourceId != null) {
       unawaited(widget.audioService.cancelRecording());
     }
-    for (final path in _directRecordingPaths.values) {
-      unawaited(widget.audioService.deleteRecording(path));
+    for (final state in _directStateBySource.values) {
+      for (final path in state.recordingPaths.values) {
+        unawaited(widget.audioService.deleteRecording(path));
+      }
     }
-    _directSource = null;
-    _directCaptures.clear();
-    _directText.clear();
-    _directRecordingPaths.clear();
+    _directStateBySource.clear();
     _comprehensionFeedback.clear();
     _submittingComprehension.clear();
     _revealedSpanishSupport.clear();
+    _recordingDirectSourceId = null;
     _recordingDirectFunction = null;
-    _startingDirect = false;
-    _finalizingDirect = false;
   }
 
   Future<void> _startOrResume(int generation) async {
@@ -228,8 +256,7 @@ class _LessonExperienceCardState extends State<LessonExperienceCard> {
             'No se pudo actualizar el estado. Se muestra el último estado confirmado.';
       });
     }
-    if (_isCurrentAttemptOperation(generation, attemptId) &&
-        _refreshPending) {
+    if (_isCurrentAttemptOperation(generation, attemptId) && _refreshPending) {
       _refreshPending = false;
       await _refreshAttempt(
         expectedAttemptId: attemptId,
@@ -253,13 +280,14 @@ class _LessonExperienceCardState extends State<LessonExperienceCard> {
   List<LessonExperienceEvidenceDefinition> _authoritativeEvidenceForStage(
     String stageId,
   ) {
-    final authoritativeIds = _attempt?.evidenceStates
+    final authoritativeIds =
+        _attempt?.evidenceStates
             .map((state) => state.evidenceDefinitionId)
             .toSet() ??
         const <String>{};
-    return _evidenceForStage(stageId)
-        .where((evidence) => authoritativeIds.contains(evidence.id))
-        .toList();
+    return _evidenceForStage(
+      stageId,
+    ).where((evidence) => authoritativeIds.contains(evidence.id)).toList();
   }
 
   List<Conversation> _conversationsForStage(LessonExperienceStage stage) {
@@ -308,13 +336,162 @@ class _LessonExperienceCardState extends State<LessonExperienceCard> {
     return null;
   }
 
+  _DirectSourceState _directStateFor(String sourceId) {
+    return _directStateBySource.putIfAbsent(sourceId, _DirectSourceState.new);
+  }
+
+  bool _isDirectEvidence(LessonExperienceEvidenceDefinition evidence) {
+    return evidence.evidenceType == 'guided_production' ||
+        evidence.evidenceType == 'contextual_response';
+  }
+
+  _DirectSourceContext? _activeV3DirectSource() {
+    final current = _attempt;
+    if (current == null || current.isCompleted) {
+      return null;
+    }
+    final definitionsById = {
+      for (final definition in _experience.evidenceDefinitions)
+        definition.id: definition,
+    };
+    for (final state in current.evidenceStates) {
+      if (state.status == 'satisfied') {
+        continue;
+      }
+      final definition = definitionsById[state.evidenceDefinitionId];
+      if (definition == null || !_isDirectEvidence(definition)) {
+        continue;
+      }
+      final stages = _experience.stages
+          .where((stage) => stage.id == definition.stageId)
+          .toList();
+      if (stages.length != 1 ||
+          !stages.single.activityIds.contains(definition.activityId)) {
+        return null;
+      }
+      final conversations = widget.lesson.conversations
+          .where((conversation) => conversation.id == definition.activityId)
+          .toList();
+      if (conversations.length != 1) {
+        return null;
+      }
+      final promptsByFunction = <String, LearnerProductionPrompt>{};
+      for (final turn in conversations.single.turns) {
+        final prompt = turn.productionPrompt;
+        final function = prompt?.productionFunction;
+        if (prompt == null ||
+            function == null ||
+            !_directFunctions.contains(function)) {
+          continue;
+        }
+        if (promptsByFunction.containsKey(function)) {
+          return null;
+        }
+        promptsByFunction[function] = prompt;
+      }
+      if (promptsByFunction.length != _orderedDirectFunctions.length ||
+          !promptsByFunction.keys.toSet().containsAll(_directFunctions)) {
+        return null;
+      }
+      return _DirectSourceContext(
+        sourceId:
+            'direct-english:${current.attemptId}:${definition.activityId}',
+        activityId: definition.activityId,
+        stageId: definition.stageId,
+        prompts: [
+          for (final function in _orderedDirectFunctions)
+            promptsByFunction[function]!,
+        ],
+        isV3: true,
+      );
+    }
+    return null;
+  }
+
+  _DirectSourceContext? _directSourceForStage(LessonExperienceStage stage) {
+    if (_usesV3DirectEnglish) {
+      final source = _activeV3DirectSource();
+      return source?.stageId == stage.id ? source : null;
+    }
+    final prompt = _directPromptForStage(stage);
+    final sourceId = _legacyDirectAttemptId;
+    if (prompt == null ||
+        sourceId == null ||
+        prompt.productionFunction == null) {
+      return null;
+    }
+    return _DirectSourceContext(
+      sourceId: sourceId,
+      activityId: stage.id,
+      stageId: stage.id,
+      prompts: [prompt],
+      isV3: false,
+    );
+  }
+
+  bool _hasV3DirectEvidence(LessonExperienceStage stage) {
+    return _authoritativeEvidenceForStage(
+          stage.id,
+        ).where(_isDirectEvidence).length ==
+        1;
+  }
+
+  bool _hasV3ConversationCompletionEvidence(LessonExperienceStage stage) {
+    return _authoritativeEvidenceForStage(stage.id)
+            .where((item) => item.evidenceType == 'conversation_completion')
+            .length ==
+        1;
+  }
+
+  bool _v3DirectEvidenceSatisfied() {
+    if (!_usesV3DirectEnglish) {
+      return true;
+    }
+    final stateById = {
+      for (final state in _attempt?.evidenceStates ?? const [])
+        state.evidenceDefinitionId: state,
+    };
+    final directDefinitions = _experience.evidenceDefinitions
+        .where(_isDirectEvidence)
+        .toList();
+    return directDefinitions.length == 2 &&
+        directDefinitions.every(
+          (definition) => stateById[definition.id]?.status == 'satisfied',
+        );
+  }
+
+  bool _isCurrentDirectOperation(
+    int generation,
+    String attemptId,
+    String sourceId,
+  ) {
+    if (!_isCurrentAttemptOperation(generation, attemptId)) {
+      return false;
+    }
+    if (!_usesV3DirectEnglish) {
+      return sourceId == _legacyDirectAttemptId;
+    }
+    return _activeV3DirectSource()?.sourceId == sourceId;
+  }
+
+  String _directWidgetKey(
+    _DirectSourceContext source,
+    String productionFunction,
+    String suffix,
+  ) {
+    if (!source.isV3) {
+      return 'direct-english-$productionFunction-$suffix';
+    }
+    return 'direct-english-${source.activityId}-$productionFunction-$suffix';
+  }
+
   bool _hasExactConversationEvidence(
     LessonExperienceStage stage,
     Conversation conversation,
   ) {
-    final evidence = _authoritativeEvidenceForStage(stage.id)
-        .where((item) => item.activityId == conversation.id)
-        .toList();
+    final evidence = _authoritativeEvidenceForStage(
+      stage.id,
+    ).where((item) => item.activityId == conversation.id).toList();
     final usesProductionSubmission =
         conversation.mode == 'free' &&
         conversation.audioFirstPolicy != null &&
@@ -324,9 +501,7 @@ class _LessonExperienceCardState extends State<LessonExperienceCard> {
 
     if (!usesProductionSubmission) {
       return evidence
-              .where(
-                (item) => item.evidenceType == 'conversation_completion',
-              )
+              .where((item) => item.evidenceType == 'conversation_completion')
               .length ==
           1;
     }
@@ -407,46 +582,47 @@ class _LessonExperienceCardState extends State<LessonExperienceCard> {
     }
   }
 
-  Future<bool> _ensureDirectSource() async {
+  Future<bool> _ensureDirectSource(_DirectSourceContext context) async {
     final current = _attempt;
-    final stableId = _stableDirectAttemptId;
-    if (current == null || stableId == null || current.isCompleted) {
+    if (current == null || current.isCompleted) {
       return false;
     }
-    if (_directSource != null) {
-      return _directSource!.experienceAttemptId == current.attemptId;
+    final state = _directStateFor(context.sourceId);
+    if (state.source != null) {
+      return state.source!.experienceAttemptId == current.attemptId &&
+          state.source!.directEnglishAttemptId == context.sourceId;
     }
-    if (_startingDirect) {
+    if (state.starting) {
       return false;
     }
     final generation = _identityGeneration;
     final attemptId = current.attemptId;
     setState(() {
-      _startingDirect = true;
+      state.starting = true;
       _errorMessage = null;
     });
     try {
       final source = await _apiService.startDirectEnglishConstructionAttempt(
-        experienceAttemptId: current.attemptId,
-        directEnglishAttemptId: stableId,
+        experienceAttemptId: attemptId,
+        directEnglishAttemptId: context.sourceId,
       );
-      if (!_isCurrentAttemptOperation(generation, attemptId)) {
+      if (!_isCurrentDirectOperation(generation, attemptId, context.sourceId)) {
         return false;
       }
       if (source == null ||
           source.experienceAttemptId != attemptId ||
-          source.directEnglishAttemptId != stableId) {
+          source.directEnglishAttemptId != context.sourceId) {
         setState(() {
           _errorMessage = 'No se pudo iniciar la producción en inglés.';
         });
         return false;
       }
       setState(() {
-        _directSource = source;
+        state.source = source;
       });
       return true;
     } catch (_) {
-      if (_isCurrentAttemptOperation(generation, attemptId)) {
+      if (_isCurrentDirectOperation(generation, attemptId, context.sourceId)) {
         setState(() {
           _errorMessage = 'No se pudo iniciar la producción en inglés.';
         });
@@ -455,14 +631,18 @@ class _LessonExperienceCardState extends State<LessonExperienceCard> {
     } finally {
       if (_isCurrentAttemptOperation(generation, attemptId)) {
         setState(() {
-          _startingDirect = false;
+          state.starting = false;
         });
       }
     }
   }
 
-  Future<void> _saveDirectText(String productionFunction) async {
-    final response = _directText[productionFunction]?.trim();
+  Future<void> _saveDirectText(
+    _DirectSourceContext context,
+    String productionFunction,
+  ) async {
+    final state = _directStateFor(context.sourceId);
+    final response = state.text[productionFunction]?.trim();
     if (response == null || response.isEmpty) {
       setState(() {
         _errorMessage = 'Escribe una respuesta antes de guardarla.';
@@ -475,12 +655,12 @@ class _LessonExperienceCardState extends State<LessonExperienceCard> {
     }
     final generation = _identityGeneration;
     final attemptId = current.attemptId;
-    if (!await _ensureDirectSource() ||
-        !_isCurrentAttemptOperation(generation, attemptId)) {
+    if (!await _ensureDirectSource(context) ||
+        !_isCurrentDirectOperation(generation, attemptId, context.sourceId)) {
       return;
     }
     setState(() {
-      _directCaptures[productionFunction] = DirectEnglishCapture.text(
+      state.captures[productionFunction] = DirectEnglishCapture.text(
         productionFunction: productionFunction,
         responseText: response,
       );
@@ -488,21 +668,28 @@ class _LessonExperienceCardState extends State<LessonExperienceCard> {
     });
   }
 
-  Future<void> _startDirectRecording(String productionFunction) async {
+  Future<void> _startDirectRecording(
+    _DirectSourceContext context,
+    String productionFunction,
+  ) async {
     final current = _attempt;
-    if (current == null || _recordingDirectFunction != null) {
+    if (current == null || _recordingDirectSourceId != null) {
       return;
     }
     final generation = _identityGeneration;
     final attemptId = current.attemptId;
-    if (!await _ensureDirectSource() ||
-        !_isCurrentAttemptOperation(generation, attemptId)) {
+    if (!await _ensureDirectSource(context) ||
+        !_isCurrentDirectOperation(generation, attemptId, context.sourceId)) {
       return;
     }
     try {
       final allowed = await widget.audioService.hasMicrophonePermission();
       if (!allowed) {
-        if (_isCurrentAttemptOperation(generation, attemptId)) {
+        if (_isCurrentDirectOperation(
+          generation,
+          attemptId,
+          context.sourceId,
+        )) {
           setState(() {
             _errorMessage = 'No se concedió permiso para usar el micrófono.';
           });
@@ -510,20 +697,19 @@ class _LessonExperienceCardState extends State<LessonExperienceCard> {
         return;
       }
       await widget.audioService.startRecording(
-        'direct:$attemptId:$productionFunction',
+        'direct:${context.sourceId}:$productionFunction',
       );
-      if (!_isCurrentAttemptOperation(generation, attemptId)) {
+      if (!_isCurrentDirectOperation(generation, attemptId, context.sourceId)) {
         unawaited(widget.audioService.cancelRecording());
         return;
       }
-      if (_isCurrentAttemptOperation(generation, attemptId)) {
-        setState(() {
-          _recordingDirectFunction = productionFunction;
-          _errorMessage = null;
-        });
-      }
+      setState(() {
+        _recordingDirectSourceId = context.sourceId;
+        _recordingDirectFunction = productionFunction;
+        _errorMessage = null;
+      });
     } catch (_) {
-      if (_isCurrentAttemptOperation(generation, attemptId)) {
+      if (_isCurrentDirectOperation(generation, attemptId, context.sourceId)) {
         setState(() {
           _errorMessage = 'No se pudo iniciar la grabación.';
         });
@@ -531,8 +717,12 @@ class _LessonExperienceCardState extends State<LessonExperienceCard> {
     }
   }
 
-  Future<void> _stopDirectRecording(String productionFunction) async {
-    if (_recordingDirectFunction != productionFunction) {
+  Future<void> _stopDirectRecording(
+    _DirectSourceContext context,
+    String productionFunction,
+  ) async {
+    if (_recordingDirectSourceId != context.sourceId ||
+        _recordingDirectFunction != productionFunction) {
       return;
     }
     final current = _attempt;
@@ -541,18 +731,20 @@ class _LessonExperienceCardState extends State<LessonExperienceCard> {
     }
     final generation = _identityGeneration;
     final attemptId = current.attemptId;
+    final state = _directStateFor(context.sourceId);
     try {
       final path = await widget.audioService.stopRecording();
-      if (!_isCurrentAttemptOperation(generation, attemptId)) {
+      if (!_isCurrentDirectOperation(generation, attemptId, context.sourceId)) {
         if (path != null) {
           unawaited(widget.audioService.deleteRecording(path));
         }
         return;
       }
       setState(() {
+        _recordingDirectSourceId = null;
         _recordingDirectFunction = null;
         if (path != null) {
-          _directRecordingPaths[productionFunction] = path;
+          state.recordingPaths[productionFunction] = path;
         }
       });
       if (path == null) {
@@ -562,14 +754,16 @@ class _LessonExperienceCardState extends State<LessonExperienceCard> {
         return;
       }
       await _uploadDirectRecording(
+        context,
         productionFunction,
         path,
         expectedAttemptId: attemptId,
         expectedGeneration: generation,
       );
     } catch (_) {
-      if (_isCurrentAttemptOperation(generation, attemptId)) {
+      if (_isCurrentDirectOperation(generation, attemptId, context.sourceId)) {
         setState(() {
+          _recordingDirectSourceId = null;
           _recordingDirectFunction = null;
           _errorMessage = 'No se pudo detener correctamente la grabación.';
         });
@@ -578,6 +772,7 @@ class _LessonExperienceCardState extends State<LessonExperienceCard> {
   }
 
   Future<void> _uploadDirectRecording(
+    _DirectSourceContext context,
     String productionFunction,
     String path, {
     String? expectedAttemptId,
@@ -590,14 +785,15 @@ class _LessonExperienceCardState extends State<LessonExperienceCard> {
     final attemptId = expectedAttemptId ?? current.attemptId;
     final generation = expectedGeneration ?? _identityGeneration;
     if (current.attemptId != attemptId ||
-        !_isCurrentAttemptOperation(generation, attemptId)) {
+        !_isCurrentDirectOperation(generation, attemptId, context.sourceId)) {
       return;
     }
+    final state = _directStateFor(context.sourceId);
     try {
       final reference = await _apiService.uploadConversationProductionAudio(
         path,
       );
-      if (!_isCurrentAttemptOperation(generation, attemptId)) {
+      if (!_isCurrentDirectOperation(generation, attemptId, context.sourceId)) {
         return;
       }
       if (reference == null) {
@@ -607,16 +803,16 @@ class _LessonExperienceCardState extends State<LessonExperienceCard> {
         return;
       }
       setState(() {
-        _directCaptures[productionFunction] = DirectEnglishCapture.voice(
+        state.captures[productionFunction] = DirectEnglishCapture.voice(
           productionFunction: productionFunction,
           audioReference: reference,
         );
-        _directRecordingPaths.remove(productionFunction);
+        state.recordingPaths.remove(productionFunction);
         _errorMessage = null;
       });
       await widget.audioService.deleteRecording(path);
     } catch (_) {
-      if (_isCurrentAttemptOperation(generation, attemptId)) {
+      if (_isCurrentDirectOperation(generation, attemptId, context.sourceId)) {
         setState(() {
           _errorMessage = 'No se pudo subir el audio. Puedes reintentarlo.';
         });
@@ -624,12 +820,13 @@ class _LessonExperienceCardState extends State<LessonExperienceCard> {
     }
   }
 
-  Future<void> _finalizeDirectSource() async {
+  Future<void> _finalizeDirectSource(_DirectSourceContext context) async {
     final current = _attempt;
-    if (current == null || current.isCompleted || _finalizingDirect) {
+    final state = _directStateFor(context.sourceId);
+    if (current == null || current.isCompleted || state.finalizing) {
       return;
     }
-    if (!_directFunctions.every(_directCaptures.containsKey)) {
+    if (!_directFunctions.every(state.captures.containsKey)) {
       setState(() {
         _errorMessage = 'Completa las tres producciones antes de enviarlas.';
       });
@@ -637,28 +834,29 @@ class _LessonExperienceCardState extends State<LessonExperienceCard> {
     }
     final generation = _identityGeneration;
     final attemptId = current.attemptId;
-    if (!await _ensureDirectSource() ||
-        !_isCurrentAttemptOperation(generation, attemptId)) {
+    if (!await _ensureDirectSource(context) ||
+        !_isCurrentDirectOperation(generation, attemptId, context.sourceId)) {
       return;
     }
     setState(() {
-      _finalizingDirect = true;
+      state.finalizing = true;
       _errorMessage = null;
     });
     try {
       final source = await _apiService.finalizeDirectEnglishConstructionAttempt(
         experienceAttemptId: attemptId,
-        directEnglishAttemptId: _directSource!.directEnglishAttemptId,
-        captures: const [
-          'guided',
-          'expanded',
-          'transfer',
-        ].map((item) => _directCaptures[item]!).toList(),
+        directEnglishAttemptId: context.sourceId,
+        captures: [
+          for (final function in _orderedDirectFunctions)
+            state.captures[function]!,
+        ],
       );
-      if (!_isCurrentAttemptOperation(generation, attemptId)) {
+      if (!_isCurrentDirectOperation(generation, attemptId, context.sourceId)) {
         return;
       }
-      if (source == null || source.experienceAttemptId != attemptId) {
+      if (source == null ||
+          source.experienceAttemptId != attemptId ||
+          source.directEnglishAttemptId != context.sourceId) {
         setState(() {
           _errorMessage =
               'No se pudieron enviar las producciones. Puedes reintentarlo.';
@@ -666,14 +864,14 @@ class _LessonExperienceCardState extends State<LessonExperienceCard> {
         return;
       }
       setState(() {
-        _directSource = source;
+        state.source = source;
       });
       await _refreshAttempt(
         expectedAttemptId: attemptId,
         expectedGeneration: generation,
       );
     } catch (_) {
-      if (_isCurrentAttemptOperation(generation, attemptId)) {
+      if (_isCurrentDirectOperation(generation, attemptId, context.sourceId)) {
         setState(() {
           _errorMessage =
               'No se pudieron enviar las producciones. Puedes reintentarlo.';
@@ -682,7 +880,7 @@ class _LessonExperienceCardState extends State<LessonExperienceCard> {
     } finally {
       if (_isCurrentAttemptOperation(generation, attemptId)) {
         setState(() {
-          _finalizingDirect = false;
+          state.finalizing = false;
         });
       }
     }
@@ -878,7 +1076,9 @@ class _LessonExperienceCardState extends State<LessonExperienceCard> {
     }
     return Column(
       children: conversations.map((conversation) {
-        final canBind = _hasExactConversationEvidence(stage, conversation);
+        final canBind =
+            _hasExactConversationEvidence(stage, conversation) &&
+            _v3DirectEvidenceSatisfied();
         final attemptId = canBind && !(_attempt?.isCompleted ?? true)
             ? _attempt?.attemptId
             : null;
@@ -910,45 +1110,51 @@ class _LessonExperienceCardState extends State<LessonExperienceCard> {
     );
   }
 
-  Widget _buildDirectProduction(LessonExperienceStage stage) {
-    final prompt = _directPromptForStage(stage);
-    final productionFunction = prompt?.productionFunction;
-    if (prompt == null || productionFunction == null) {
+  Widget _buildDirectProduction(
+    _DirectSourceContext context,
+    LearnerProductionPrompt prompt,
+  ) {
+    final productionFunction = prompt.productionFunction;
+    if (productionFunction == null) {
       return const Text(
         'No se encontró una producción autoritativa compatible para esta etapa.',
       );
     }
-    final capture = _directCaptures[productionFunction];
-    final recording = _recordingDirectFunction == productionFunction;
-    final pendingPath = _directRecordingPaths[productionFunction];
+    final state = _directStateFor(context.sourceId);
+    final capture = state.captures[productionFunction];
+    final recording =
+        _recordingDirectSourceId == context.sourceId &&
+        _recordingDirectFunction == productionFunction;
+    final pendingPath = state.recordingPaths[productionFunction];
     final transferPrompt = productionFunction == 'transfer'
-        ? _directSource?.transferPrompt
+        ? state.source?.transferPrompt
         : null;
     final allowActions =
-        !(_attempt?.isCompleted ?? true) &&
-        _directSource?.status != 'finalized';
+        !(_attempt?.isCompleted ?? true) && state.source?.status != 'finalized';
 
     return Column(
-      key: Key('direct-english-$productionFunction'),
+      key: Key(_directWidgetKey(context, productionFunction, 'capture')),
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const SizedBox(height: 12),
         if (transferPrompt != null) Text(transferPrompt),
         if (prompt.acceptedModalities.contains('text')) ...[
           TextField(
-            key: Key('direct-english-$productionFunction-text'),
+            key: Key(_directWidgetKey(context, productionFunction, 'text')),
             enabled: allowActions,
             decoration: const InputDecoration(
               labelText: 'Escribe tu respuesta',
               border: OutlineInputBorder(),
             ),
-            onChanged: (value) => _directText[productionFunction] = value,
+            onChanged: (value) => state.text[productionFunction] = value,
           ),
           const SizedBox(height: 8),
           OutlinedButton.icon(
-            key: Key('direct-english-$productionFunction-save-text'),
+            key: Key(
+              _directWidgetKey(context, productionFunction, 'save-text'),
+            ),
             onPressed: allowActions
-                ? () => _saveDirectText(productionFunction)
+                ? () => _saveDirectText(context, productionFunction)
                 : null,
             icon: const Icon(Icons.save_outlined),
             label: const Text('Guardar respuesta de texto'),
@@ -957,13 +1163,13 @@ class _LessonExperienceCardState extends State<LessonExperienceCard> {
         if (prompt.acceptedModalities.contains('voice')) ...[
           const SizedBox(height: 8),
           FilledButton.icon(
-            key: Key('direct-english-$productionFunction-record'),
+            key: Key(_directWidgetKey(context, productionFunction, 'record')),
             onPressed: !allowActions
                 ? null
                 : recording
-                ? () => _stopDirectRecording(productionFunction)
-                : _recordingDirectFunction == null
-                ? () => _startDirectRecording(productionFunction)
+                ? () => _stopDirectRecording(context, productionFunction)
+                : _recordingDirectSourceId == null
+                ? () => _startDirectRecording(context, productionFunction)
                 : null,
             icon: Icon(recording ? Icons.stop_circle_outlined : Icons.mic_none),
             label: Text(recording ? 'Detener grabación' : 'Grabar respuesta'),
@@ -972,8 +1178,11 @@ class _LessonExperienceCardState extends State<LessonExperienceCard> {
         if (pendingPath != null) ...[
           const SizedBox(height: 8),
           OutlinedButton(
-            onPressed: () =>
-                _uploadDirectRecording(productionFunction, pendingPath),
+            onPressed: () => _uploadDirectRecording(
+              context,
+              productionFunction,
+              pendingPath,
+            ),
             child: const Text('Reintentar subida de audio'),
           ),
         ],
@@ -987,6 +1196,30 @@ class _LessonExperienceCardState extends State<LessonExperienceCard> {
     );
   }
 
+  Widget _buildDirectProductionGroup(LessonExperienceStage stage) {
+    final context = _directSourceForStage(stage);
+    if (context == null) {
+      if (_usesV3DirectEnglish && _hasV3DirectEvidence(stage)) {
+        return const Text(
+          'Completa la producción anterior antes de continuar.',
+        );
+      }
+      return const Text(
+        'No se encontró una producción autoritativa compatible para esta etapa.',
+      );
+    }
+    return KeyedSubtree(
+      key: ValueKey('direct-source:${context.sourceId}'),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          for (final prompt in context.prompts)
+            _buildDirectProduction(context, prompt),
+        ],
+      ),
+    );
+  }
+
   Widget _buildStageBody(LessonExperienceStage stage) {
     if (!_supportedStageTypes.contains(stage.type)) {
       return Text(
@@ -996,13 +1229,22 @@ class _LessonExperienceCardState extends State<LessonExperienceCard> {
       );
     }
 
+    if (_usesV3DirectEnglish) {
+      if (_hasV3ConversationCompletionEvidence(stage)) {
+        return _buildConversationStage(stage);
+      }
+      if (_hasV3DirectEvidence(stage)) {
+        return _buildDirectProductionGroup(stage);
+      }
+    }
+
     return switch (stage.type) {
       'encounter' => _buildEncounter(stage),
       'comprehension' => _buildComprehension(stage),
       'language_support' => _buildLanguageSupport(stage),
       'guided_production' || 'applied_conversation' || 'evidence'
           when _experience.pedagogicalMethod == 'direct_english_construction' =>
-        _buildDirectProduction(stage),
+        _buildDirectProductionGroup(stage),
       'guided_production' ||
       'applied_conversation' ||
       'evidence' => _buildConversationStage(stage),
@@ -1065,7 +1307,22 @@ class _LessonExperienceCardState extends State<LessonExperienceCard> {
     if (_experience.pedagogicalMethod != 'direct_english_construction') {
       return const SizedBox.shrink();
     }
-    final allCaptured = _directFunctions.every(_directCaptures.containsKey);
+    _DirectSourceContext? sourceContext;
+    if (_usesV3DirectEnglish) {
+      sourceContext = _activeV3DirectSource();
+    } else {
+      for (final stage in _experience.stages) {
+        sourceContext = _directSourceForStage(stage);
+        if (sourceContext != null) {
+          break;
+        }
+      }
+    }
+    if (sourceContext == null) {
+      return const SizedBox.shrink();
+    }
+    final state = _directStateFor(sourceContext.sourceId);
+    final allCaptured = _directFunctions.every(state.captures.containsKey);
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -1082,16 +1339,20 @@ class _LessonExperienceCardState extends State<LessonExperienceCard> {
             ),
             const SizedBox(height: 12),
             FilledButton(
-              key: const Key('direct-english-finalize'),
+              key: Key(
+                sourceContext.isV3
+                    ? 'direct-english-${sourceContext.activityId}-finalize'
+                    : 'direct-english-finalize',
+              ),
               onPressed:
                   allCaptured &&
-                      !_finalizingDirect &&
+                      !state.finalizing &&
                       !(_attempt?.isCompleted ?? true) &&
-                      _directSource?.status != 'finalized'
-                  ? _finalizeDirectSource
+                      state.source?.status != 'finalized'
+                  ? () => _finalizeDirectSource(sourceContext!)
                   : null,
               child: Text(
-                _finalizingDirect ? 'Enviando...' : 'Enviar producciones',
+                state.finalizing ? 'Enviando...' : 'Enviar producciones',
               ),
             ),
           ],

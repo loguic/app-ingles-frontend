@@ -91,6 +91,7 @@ class FakeExperienceApiService extends ApiService {
     this.lessonResult,
     this.failFirstDirectStart = false,
     this.startResults = const [],
+    this.refreshResults = const [],
   });
 
   ExperienceAttemptRecord? startResult;
@@ -98,7 +99,9 @@ class FakeExperienceApiService extends ApiService {
   Lesson? lessonResult;
   bool failFirstDirectStart;
   final List<ExperienceAttemptRecord?> startResults;
+  final List<ExperienceAttemptRecord?> refreshResults;
   int _startResultIndex = 0;
+  int _refreshResultIndex = 0;
   int startCalls = 0;
   int refreshCalls = 0;
   int comprehensionCalls = 0;
@@ -107,11 +110,13 @@ class FakeExperienceApiService extends ApiService {
   int saveProgressCalls = 0;
   final List<String> startedDirectIds = [];
   final List<DirectEnglishCapture> finalizedCaptures = [];
+  final Map<String, List<DirectEnglishCapture>> finalizedCapturesBySource = {};
   int? lastSelectedIndex;
   String? lastComprehensionExerciseId;
   Completer<ExperienceComprehensionResponseRecord?>? delayedComprehension;
   Completer<DirectEnglishPublicSourceRecord?>? delayedDirectStart;
   Completer<DirectEnglishPublicSourceRecord?>? delayedDirectFinalize;
+  Completer<String?>? delayedDirectUpload;
   Completer<ExperienceAttemptRecord?>? delayedRefresh;
 
   @override
@@ -139,6 +144,9 @@ class FakeExperienceApiService extends ApiService {
     final delayed = delayedRefresh;
     if (delayed != null) {
       return delayed.future;
+    }
+    if (_refreshResultIndex < refreshResults.length) {
+      return refreshResults[_refreshResultIndex++];
     }
     return refreshResult;
   }
@@ -200,6 +208,7 @@ class FakeExperienceApiService extends ApiService {
     finalizedCaptures
       ..clear()
       ..addAll(captures);
+    finalizedCapturesBySource[directEnglishAttemptId] = List.of(captures);
     final source = DirectEnglishPublicSourceRecord(
       directEnglishAttemptId: directEnglishAttemptId,
       experienceAttemptId: experienceAttemptId,
@@ -213,7 +222,8 @@ class FakeExperienceApiService extends ApiService {
 
   @override
   Future<String?> uploadConversationProductionAudio(String audioPath) async {
-    return 'production-audio://$audioPath';
+    final delayed = delayedDirectUpload;
+    return delayed == null ? 'production-audio://$audioPath' : delayed.future;
   }
 
   @override
@@ -235,6 +245,7 @@ ExperienceAttemptRecord attemptRecord({
   String attemptId = 'experience-attempt-1',
   String lessonId = 'lesson-v2',
   String status = 'in_progress',
+  String contractVersion = '2.0',
   List<ExperienceEvidenceStateRecord> evidenceStates = const [],
 }) {
   return ExperienceAttemptRecord(
@@ -243,7 +254,7 @@ ExperienceAttemptRecord attemptRecord({
     levelId: 'A1',
     unitId: 'a1-u1',
     lessonId: lessonId,
-    experienceContractVersion: '2.0',
+    experienceContractVersion: contractVersion,
     status: status,
     startedAt: DateTime.utc(2026, 8, 31, 10),
     completedAt: status == 'completed'
@@ -269,6 +280,7 @@ Lesson v2Lesson({
   List<LessonExercise> exercises = const [],
   List<LessonExperienceLanguageSupport> support = const [],
   LessonPronunciationReinforcement? reinforcement,
+  String contractVersion = '2.0',
 }) {
   return Lesson(
     id: id,
@@ -279,7 +291,7 @@ Lesson v2Lesson({
     conversations: conversations,
     exercises: exercises,
     experience: LessonExperience(
-      contractVersion: '2.0',
+      contractVersion: contractVersion,
       pedagogicalMethod: method,
       mission: mission,
       stages: stages,
@@ -388,6 +400,156 @@ const directEvidence = [
     evidenceType: 'contextual_response',
   ),
 ];
+
+Conversation _v3DirectConversation(String id) => Conversation(
+  id: id,
+  title: 'Direct $id',
+  turns: [
+    ConversationTurn(
+      id: '$id-guided-turn',
+      speaker: 'learner',
+      en: 'Introduce yourself.',
+      productionPrompt: LearnerProductionPrompt(
+        id: '$id-guided-prompt',
+        acceptedModalities: const ['voice', 'text'],
+        productionFunction: 'guided',
+      ),
+    ),
+    ConversationTurn(
+      id: '$id-expanded-turn',
+      speaker: 'learner',
+      en: 'Add one detail.',
+      productionPrompt: LearnerProductionPrompt(
+        id: '$id-expanded-prompt',
+        acceptedModalities: const ['voice', 'text'],
+        productionFunction: 'expanded',
+      ),
+    ),
+    ConversationTurn(
+      id: '$id-transfer-turn',
+      speaker: 'learner',
+      en: 'Answer the transfer prompt.',
+      productionPrompt: LearnerProductionPrompt(
+        id: '$id-transfer-prompt',
+        acceptedModalities: const ['voice', 'text'],
+        productionFunction: 'transfer',
+      ),
+    ),
+  ],
+);
+
+const v3DirectStages = [
+  LessonExperienceStage(
+    id: 'v3-comprehension-stage',
+    type: 'comprehension',
+    instruction: 'Listen first.',
+    activityIds: ['v3-comprehension-activity'],
+    mode: 'required',
+    completionCondition: 'evidence_recorded',
+  ),
+  LessonExperienceStage(
+    id: 'v3-direct-a-stage',
+    type: 'guided_production',
+    instruction: 'First direct source.',
+    activityIds: ['v3-direct-a'],
+    mode: 'required',
+    completionCondition: 'evidence_recorded',
+  ),
+  LessonExperienceStage(
+    id: 'v3-direct-b-stage',
+    type: 'applied_conversation',
+    instruction: 'Second direct source.',
+    activityIds: ['v3-direct-b'],
+    mode: 'required',
+    completionCondition: 'evidence_recorded',
+  ),
+  LessonExperienceStage(
+    id: 'v3-final-conversation-stage',
+    type: 'evidence',
+    instruction: 'Final conversation.',
+    activityIds: ['v3-final-conversation'],
+    mode: 'required',
+    completionCondition: 'evidence_recorded',
+  ),
+];
+
+const v3DirectEvidence = [
+  LessonExperienceEvidenceDefinition(
+    id: 'v3-comprehension-evidence',
+    stageId: 'v3-comprehension-stage',
+    activityId: 'v3-comprehension-activity',
+    evidenceType: 'comprehension_result',
+    comprehensionExerciseId: 'v3-comprehension-exercise',
+  ),
+  LessonExperienceEvidenceDefinition(
+    id: 'v3-guided-evidence',
+    stageId: 'v3-direct-a-stage',
+    activityId: 'v3-direct-a',
+    evidenceType: 'guided_production',
+  ),
+  LessonExperienceEvidenceDefinition(
+    id: 'v3-contextual-evidence',
+    stageId: 'v3-direct-b-stage',
+    activityId: 'v3-direct-b',
+    evidenceType: 'contextual_response',
+  ),
+  LessonExperienceEvidenceDefinition(
+    id: 'v3-conversation-evidence',
+    stageId: 'v3-final-conversation-stage',
+    activityId: 'v3-final-conversation',
+    evidenceType: 'conversation_completion',
+  ),
+];
+
+List<ExperienceEvidenceStateRecord> v3EvidenceStates({
+  String guided = 'pending',
+  String contextual = 'pending',
+  String conversation = 'pending',
+}) => [
+  const ExperienceEvidenceStateRecord(
+    evidenceDefinitionId: 'v3-comprehension-evidence',
+    evidenceType: 'comprehension_result',
+    status: 'pending',
+  ),
+  ExperienceEvidenceStateRecord(
+    evidenceDefinitionId: 'v3-guided-evidence',
+    evidenceType: 'guided_production',
+    status: guided,
+  ),
+  ExperienceEvidenceStateRecord(
+    evidenceDefinitionId: 'v3-contextual-evidence',
+    evidenceType: 'contextual_response',
+    status: contextual,
+  ),
+  ExperienceEvidenceStateRecord(
+    evidenceDefinitionId: 'v3-conversation-evidence',
+    evidenceType: 'conversation_completion',
+    status: conversation,
+  ),
+];
+
+Lesson v3DirectLesson() => v2Lesson(
+  id: 'lesson-v3',
+  contractVersion: '3.0',
+  method: 'direct_english_construction',
+  stages: v3DirectStages,
+  evidence: v3DirectEvidence,
+  conversations: [
+    _v3DirectConversation('v3-direct-a'),
+    _v3DirectConversation('v3-direct-b'),
+    _guidedConversation('v3-final-conversation'),
+  ],
+  exercises: const [
+    LessonExercise(
+      id: 'v3-comprehension-exercise',
+      type: 'multiple_choice',
+      prompt: 'What did you hear?',
+      options: ['One', 'Two'],
+      answerIndex: 1,
+      skillIds: [],
+    ),
+  ],
+);
 
 List<ExperienceEvidenceStateRecord> authoritativeStatesFor(
   Iterable<LessonExperienceEvidenceDefinition> definitions,
@@ -521,6 +683,26 @@ Future<FakeExperienceAudioController> pumpExperience(
   );
   await tester.pumpAndSettle();
   return audio;
+}
+
+Key _v3DirectKey(String activityId, String function, String suffix) {
+  return Key('direct-english-$activityId-$function-$suffix');
+}
+
+Future<void> saveV3DirectCaptures(
+  WidgetTester tester,
+  String activityId,
+) async {
+  for (final function in const ['guided', 'expanded', 'transfer']) {
+    await tester.enterText(
+      find.byKey(_v3DirectKey(activityId, function, 'text')),
+      '$activityId $function response',
+    );
+    final save = find.byKey(_v3DirectKey(activityId, function, 'save-text'));
+    await tester.ensureVisible(save);
+    await tester.tap(save);
+    await tester.pumpAndSettle();
+  }
 }
 
 void main() {
@@ -1135,7 +1317,9 @@ void main() {
       ),
     ];
     final api = FakeExperienceApiService(
-      startResult: attemptRecord(evidenceStates: authoritativeStatesFor(evidence)),
+      startResult: attemptRecord(
+        evidenceStates: authoritativeStatesFor(evidence),
+      ),
     );
     await pumpExperience(
       tester,
@@ -1256,7 +1440,11 @@ void main() {
     );
 
     await tester.pumpWidget(
-      _experienceShell(lesson: directLesson('lesson-A'), api: api, audio: audio),
+      _experienceShell(
+        lesson: directLesson('lesson-A'),
+        api: api,
+        audio: audio,
+      ),
     );
     await tester.pumpAndSettle();
     await tester.enterText(
@@ -1267,7 +1455,11 @@ void main() {
     await tester.pump();
 
     await tester.pumpWidget(
-      _experienceShell(lesson: directLesson('lesson-B'), api: api, audio: audio),
+      _experienceShell(
+        lesson: directLesson('lesson-B'),
+        api: api,
+        audio: audio,
+      ),
     );
     await tester.pumpAndSettle();
     api.delayedDirectStart = null;
@@ -1325,7 +1517,11 @@ void main() {
     );
 
     await tester.pumpWidget(
-      _experienceShell(lesson: directLesson('lesson-A'), api: api, audio: audio),
+      _experienceShell(
+        lesson: directLesson('lesson-A'),
+        api: api,
+        audio: audio,
+      ),
     );
     await tester.pumpAndSettle();
     for (final function in const ['guided', 'expanded', 'transfer']) {
@@ -1333,9 +1529,7 @@ void main() {
         find.byKey(Key('direct-english-$function-text')),
         'Answer for $function',
       );
-      final saveButton = find.byKey(
-        Key('direct-english-$function-save-text'),
-      );
+      final saveButton = find.byKey(Key('direct-english-$function-save-text'));
       await tester.ensureVisible(saveButton);
       await tester.tap(saveButton);
       await tester.pumpAndSettle();
@@ -1348,7 +1542,11 @@ void main() {
     await tester.pump();
 
     await tester.pumpWidget(
-      _experienceShell(lesson: directLesson('lesson-B'), api: api, audio: audio),
+      _experienceShell(
+        lesson: directLesson('lesson-B'),
+        api: api,
+        audio: audio,
+      ),
     );
     await tester.pumpAndSettle();
     delayed.complete(
@@ -1429,6 +1627,289 @@ void main() {
 
     expect(find.byKey(const Key('experience-completed')), findsNothing);
     expect(find.text('Respuesta correcta.'), findsNothing);
+  });
+
+  testWidgets(
+    'v3 creates distinct activity-scoped sources only after authoritative refresh',
+    (tester) async {
+      final delayedRefresh = Completer<ExperienceAttemptRecord?>();
+      final api = FakeExperienceApiService(
+        startResult: attemptRecord(
+          lessonId: 'lesson-v3',
+          contractVersion: '3.0',
+          evidenceStates: v3EvidenceStates(),
+        ),
+      )..delayedRefresh = delayedRefresh;
+      await pumpExperience(tester, lesson: v3DirectLesson(), apiService: api);
+
+      for (final function in const ['guided', 'expanded', 'transfer']) {
+        expect(
+          find.byKey(_v3DirectKey('v3-direct-a', function, 'text')),
+          findsOneWidget,
+        );
+        expect(
+          find.byKey(_v3DirectKey('v3-direct-b', function, 'text')),
+          findsNothing,
+        );
+      }
+
+      await saveV3DirectCaptures(tester, 'v3-direct-a');
+      expect(api.startedDirectIds, [
+        'direct-english:experience-attempt-1:v3-direct-a',
+      ]);
+      final firstFinalize = find.byKey(
+        const Key('direct-english-v3-direct-a-finalize'),
+      );
+      await tester.ensureVisible(firstFinalize);
+      await tester.tap(firstFinalize);
+      await tester.pump();
+
+      expect(api.directFinalizeCalls, 1);
+      expect(
+        api.finalizedCapturesBySource['direct-english:experience-attempt-1:v3-direct-a']
+            ?.map((capture) => capture.productionFunction),
+        ['guided', 'expanded', 'transfer'],
+      );
+      expect(
+        find.byKey(_v3DirectKey('v3-direct-b', 'guided', 'text')),
+        findsNothing,
+      );
+
+      api.delayedRefresh = null;
+      api.refreshResult = attemptRecord(
+        lessonId: 'lesson-v3',
+        contractVersion: '3.0',
+        evidenceStates: v3EvidenceStates(guided: 'satisfied'),
+      );
+      delayedRefresh.complete(api.refreshResult);
+      await tester.pumpAndSettle();
+
+      final secondFinalize = find.byKey(
+        const Key('direct-english-v3-direct-b-finalize'),
+      );
+      expect(
+        find.byKey(_v3DirectKey('v3-direct-b', 'guided', 'text')),
+        findsOneWidget,
+      );
+      expect(tester.widget<FilledButton>(secondFinalize).onPressed, isNull);
+
+      api.refreshResult = attemptRecord(
+        lessonId: 'lesson-v3',
+        contractVersion: '3.0',
+        evidenceStates: v3EvidenceStates(
+          guided: 'satisfied',
+          contextual: 'satisfied',
+        ),
+      );
+
+      await saveV3DirectCaptures(tester, 'v3-direct-b');
+      expect(api.startedDirectIds, [
+        'direct-english:experience-attempt-1:v3-direct-a',
+        'direct-english:experience-attempt-1:v3-direct-b',
+      ]);
+      await tester.ensureVisible(secondFinalize);
+      await tester.tap(secondFinalize);
+      await tester.pumpAndSettle();
+
+      expect(api.directFinalizeCalls, 2);
+      expect(
+        api.finalizedCapturesBySource.keys,
+        containsAll([
+          'direct-english:experience-attempt-1:v3-direct-a',
+          'direct-english:experience-attempt-1:v3-direct-b',
+        ]),
+      );
+      expect(find.byKey(const Key('experience-completed')), findsNothing);
+      expect(find.text('Conseguido'), findsNWidgets(2));
+    },
+  );
+
+  testWidgets('v3 final conversation uses the exact completion source', (
+    tester,
+  ) async {
+    final api = FakeExperienceApiService(
+      startResult: attemptRecord(
+        lessonId: 'lesson-v3',
+        contractVersion: '3.0',
+        evidenceStates: v3EvidenceStates(
+          guided: 'satisfied',
+          contextual: 'satisfied',
+        ),
+      ),
+    );
+    await pumpExperience(tester, lesson: v3DirectLesson(), apiService: api);
+
+    final conversation = tester.widget<LessonConversationCard>(
+      find.byType(LessonConversationCard),
+    );
+    expect(conversation.conversation.id, 'v3-final-conversation');
+    expect(conversation.experienceAttemptId, 'experience-attempt-1');
+    expect(
+      find.byKey(_v3DirectKey('v3-direct-a', 'guided', 'text')),
+      findsNothing,
+    );
+  });
+
+  testWidgets('stale v3 source start cannot mutate the next source', (
+    tester,
+  ) async {
+    final delayedStart = Completer<DirectEnglishPublicSourceRecord?>();
+    final api = FakeExperienceApiService(
+      startResult: attemptRecord(
+        lessonId: 'lesson-v3',
+        contractVersion: '3.0',
+        evidenceStates: v3EvidenceStates(),
+      ),
+      refreshResult: attemptRecord(
+        lessonId: 'lesson-v3',
+        contractVersion: '3.0',
+        evidenceStates: v3EvidenceStates(guided: 'satisfied'),
+      ),
+    )..delayedDirectStart = delayedStart;
+    await pumpExperience(tester, lesson: v3DirectLesson(), apiService: api);
+
+    await tester.enterText(
+      find.byKey(_v3DirectKey('v3-direct-a', 'guided', 'text')),
+      'I am Alex.',
+    );
+    final saveGuided = find.byKey(
+      _v3DirectKey('v3-direct-a', 'guided', 'save-text'),
+    );
+    await tester.ensureVisible(saveGuided);
+    await tester.tap(saveGuided);
+    await tester.pump();
+    final comprehension = find.byKey(
+      const Key('experience-comprehension-v3-comprehension-exercise-option-1'),
+    );
+    await tester.ensureVisible(comprehension);
+    await tester.tap(comprehension);
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(_v3DirectKey('v3-direct-b', 'guided', 'text')),
+      findsOneWidget,
+    );
+    api.delayedDirectStart = null;
+    delayedStart.complete(
+      const DirectEnglishPublicSourceRecord(
+        directEnglishAttemptId:
+            'direct-english:experience-attempt-1:v3-direct-a',
+        experienceAttemptId: 'experience-attempt-1',
+        status: 'started',
+        transferVariantId: 'variant-a',
+        transferPrompt: 'Prompt A',
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final secondFinalize = find.byKey(
+      const Key('direct-english-v3-direct-b-finalize'),
+    );
+    expect(tester.widget<FilledButton>(secondFinalize).onPressed, isNull);
+    expect(find.text('Prompt A'), findsNothing);
+  });
+
+  testWidgets('stale v3 finalize cannot mutate the next source', (
+    tester,
+  ) async {
+    final delayedFinalize = Completer<DirectEnglishPublicSourceRecord?>();
+    final api = FakeExperienceApiService(
+      startResult: attemptRecord(
+        lessonId: 'lesson-v3',
+        contractVersion: '3.0',
+        evidenceStates: v3EvidenceStates(),
+      ),
+      refreshResult: attemptRecord(
+        lessonId: 'lesson-v3',
+        contractVersion: '3.0',
+        evidenceStates: v3EvidenceStates(guided: 'satisfied'),
+      ),
+    )..delayedDirectFinalize = delayedFinalize;
+    await pumpExperience(tester, lesson: v3DirectLesson(), apiService: api);
+    await saveV3DirectCaptures(tester, 'v3-direct-a');
+
+    final firstFinalize = find.byKey(
+      const Key('direct-english-v3-direct-a-finalize'),
+    );
+    await tester.ensureVisible(firstFinalize);
+    await tester.tap(firstFinalize);
+    await tester.pump();
+
+    final comprehension = find.byKey(
+      const Key('experience-comprehension-v3-comprehension-exercise-option-1'),
+    );
+    await tester.ensureVisible(comprehension);
+    await tester.tap(comprehension);
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(_v3DirectKey('v3-direct-b', 'guided', 'text')),
+      findsOneWidget,
+    );
+
+    api.delayedDirectFinalize = null;
+    delayedFinalize.complete(
+      const DirectEnglishPublicSourceRecord(
+        directEnglishAttemptId:
+            'direct-english:experience-attempt-1:v3-direct-a',
+        experienceAttemptId: 'experience-attempt-1',
+        status: 'finalized',
+        transferVariantId: 'variant-a',
+        transferPrompt: 'Prompt A',
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(api.refreshCalls, 1);
+    final secondFinalize = find.byKey(
+      const Key('direct-english-v3-direct-b-finalize'),
+    );
+    expect(tester.widget<FilledButton>(secondFinalize).onPressed, isNull);
+    expect(find.text('Prompt A'), findsNothing);
+  });
+
+  testWidgets('stale v3 upload cannot populate the next source', (
+    tester,
+  ) async {
+    final delayedUpload = Completer<String?>();
+    final api = FakeExperienceApiService(
+      startResult: attemptRecord(
+        lessonId: 'lesson-v3',
+        contractVersion: '3.0',
+        evidenceStates: v3EvidenceStates(),
+      ),
+      refreshResult: attemptRecord(
+        lessonId: 'lesson-v3',
+        contractVersion: '3.0',
+        evidenceStates: v3EvidenceStates(guided: 'satisfied'),
+      ),
+    )..delayedDirectUpload = delayedUpload;
+    await pumpExperience(tester, lesson: v3DirectLesson(), apiService: api);
+
+    final record = find.byKey(_v3DirectKey('v3-direct-a', 'guided', 'record'));
+    await tester.ensureVisible(record);
+    await tester.tap(record);
+    await tester.pump();
+    await tester.ensureVisible(record);
+    await tester.tap(record);
+    await tester.pump();
+
+    await saveV3DirectCaptures(tester, 'v3-direct-a');
+    final firstFinalize = find.byKey(
+      const Key('direct-english-v3-direct-a-finalize'),
+    );
+    await tester.ensureVisible(firstFinalize);
+    await tester.tap(firstFinalize);
+    await tester.pumpAndSettle();
+
+    final secondFinalize = find.byKey(
+      const Key('direct-english-v3-direct-b-finalize'),
+    );
+    expect(tester.widget<FilledButton>(secondFinalize).onPressed, isNull);
+    delayedUpload.complete('production-audio://stale-a');
+    await tester.pumpAndSettle();
+
+    expect(tester.widget<FilledButton>(secondFinalize).onPressed, isNull);
+    expect(find.text('Producción preparada (voz).'), findsNothing);
   });
 
   testWidgets(

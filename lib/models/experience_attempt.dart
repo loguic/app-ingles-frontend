@@ -40,6 +40,7 @@ class ExperienceAttemptRecord {
     required this.startedAt,
     required this.completedAt,
     required this.evidenceStates,
+    this.submittedComprehensionExerciseIds = const <String>{},
   });
 
   static const allowedStatuses = <String>{'in_progress', 'completed'};
@@ -54,14 +55,22 @@ class ExperienceAttemptRecord {
   final DateTime startedAt;
   final DateTime? completedAt;
   final List<ExperienceEvidenceStateRecord> evidenceStates;
+  final Set<String> submittedComprehensionExerciseIds;
 
   bool get isCompleted => status == 'completed';
 
   factory ExperienceAttemptRecord.fromJson(Map<String, dynamic> json) {
     final completedAt = json['completed_at'];
     final rawEvidenceStates = json['evidence_states'];
+    final rawSubmittedExerciseIds =
+        json['submitted_comprehension_exercise_ids'];
     if (rawEvidenceStates is! List<dynamic>) {
       throw const FormatException('evidence_states must be a list');
+    }
+    if (rawSubmittedExerciseIds != null && rawSubmittedExerciseIds is! List) {
+      throw const FormatException(
+        'submitted_comprehension_exercise_ids must be a list',
+      );
     }
 
     return ExperienceAttemptRecord(
@@ -86,6 +95,9 @@ class ExperienceAttemptRecord {
             ),
           )
           .toList(),
+      submittedComprehensionExerciseIds: rawSubmittedExerciseIds == null
+          ? const <String>{}
+          : rawSubmittedExerciseIds.cast<String>().toSet(),
     );
   }
 }

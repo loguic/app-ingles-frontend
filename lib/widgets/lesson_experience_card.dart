@@ -106,6 +106,25 @@ class _LessonExperienceCardState extends State<LessonExperienceCard> {
   String? get _legacyDirectAttemptId =>
       _attempt == null ? null : 'direct-english:${_attempt!.attemptId}';
 
+  bool get _usesStrictV3SupportTiming => _experience.contractVersion == '3.0';
+
+  bool _isTimingSatisfied(String? requiredExerciseId) {
+    return !_usesStrictV3SupportTiming ||
+        requiredExerciseId == null ||
+        (_attempt?.submittedComprehensionExerciseIds.contains(
+              requiredExerciseId,
+            ) ??
+            false);
+  }
+
+  bool _isTranscriptTimingSatisfied(Conversation conversation) {
+    return _isTimingSatisfied(
+      conversation
+          .audioFirstPolicy
+          ?.transcriptRevealAfterFirstResponseToExerciseId,
+    );
+  }
+
   @override
   void initState() {
     super.initState();
@@ -939,6 +958,9 @@ class _LessonExperienceCardState extends State<LessonExperienceCard> {
                 ),
                 if (support.usageNote != null) Text(support.usageNote!),
                 if (support.es != null &&
+                    _isTimingSatisfied(
+                      support.spanishRevealAfterFirstResponseToExerciseId,
+                    ) &&
                     !_revealedSpanishSupport.contains(support.id))
                   TextButton.icon(
                     onPressed: () {
@@ -950,6 +972,9 @@ class _LessonExperienceCardState extends State<LessonExperienceCard> {
                     label: const Text('Necesito apoyo en español'),
                   ),
                 if (support.es != null &&
+                    _isTimingSatisfied(
+                      support.spanishRevealAfterFirstResponseToExerciseId,
+                    ) &&
                     _revealedSpanishSupport.contains(support.id))
                   Text(support.es!),
                 if (support.pronunciations.isNotEmpty)
@@ -985,6 +1010,9 @@ class _LessonExperienceCardState extends State<LessonExperienceCard> {
               apiService: _apiService,
               speechRecognitionController: widget.speechRecognitionController,
               persistencePolicy: ConversationPersistencePolicy.disabled,
+              transcriptTimingSatisfied: _isTranscriptTimingSatisfied(
+                conversation,
+              ),
             ),
           ),
         ),
@@ -1104,6 +1132,9 @@ class _LessonExperienceCardState extends State<LessonExperienceCard> {
                     expectedAttemptId: attemptId,
                     expectedGeneration: bindingGeneration,
                   ),
+            transcriptTimingSatisfied: _isTranscriptTimingSatisfied(
+              conversation,
+            ),
           ),
         );
       }).toList(),

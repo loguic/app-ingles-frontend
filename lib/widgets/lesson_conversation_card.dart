@@ -37,6 +37,7 @@ class LessonConversationCard extends StatefulWidget {
     this.persistencePolicy = ConversationPersistencePolicy.inherited,
     this.experienceAttemptId,
     this.onAuthoritativeSourcePersisted,
+    this.transcriptTimingSatisfied = true,
     this.demoMode = false,
     super.key,
   });
@@ -63,6 +64,9 @@ class LessonConversationCard extends StatefulWidget {
 
   /// Requests a fresh authoritative attempt snapshot after bound persistence.
   final Future<void> Function()? onAuthoritativeSourcePersisted;
+
+  /// Whether the parent-authoritative experience snapshot permits transcript use.
+  final bool transcriptTimingSatisfied;
 
   /// Uses contingent rescue controls and neutral completion copy.
   final bool demoMode;
@@ -210,18 +214,17 @@ class _LessonConversationCardState extends State<LessonConversationCard> {
       });
     });
 
-    _playbackCompletedSubscription = widget.audioService.onPlaybackCompleted.listen(
-      (playbackId) {
-      if (!mounted || _step != _ConversationPracticeStep.listenPartner) {
-        return;
-      }
-      final pronunciation = _activePronunciation;
-      if (pronunciation != null &&
-          playbackId == _referencePlaybackId(_currentTurn, pronunciation)) {
-        setState(() => _step = _ConversationPracticeStep.understandPartner);
-      }
-      },
-    );
+    _playbackCompletedSubscription = widget.audioService.onPlaybackCompleted
+        .listen((playbackId) {
+          if (!mounted || _step != _ConversationPracticeStep.listenPartner) {
+            return;
+          }
+          final pronunciation = _activePronunciation;
+          if (pronunciation != null &&
+              playbackId == _referencePlaybackId(_currentTurn, pronunciation)) {
+            setState(() => _step = _ConversationPracticeStep.understandPartner);
+          }
+        });
 
     _recordingSubscription = widget.audioService.onRecordingChanged.listen((
       recordingId,
@@ -938,7 +941,9 @@ class _LessonConversationCardState extends State<LessonConversationCard> {
           ),
           const SizedBox(height: 8),
         ],
-        if (_isAudioFirstPartnerTurn && !_isCurrentTranscriptRevealed) ...[
+        if (_isAudioFirstPartnerTurn &&
+            widget.transcriptTimingSatisfied &&
+            !_isCurrentTranscriptRevealed) ...[
           if (widget.demoMode) ...[
             const _DemoConversationHint(),
             const SizedBox(height: 8),

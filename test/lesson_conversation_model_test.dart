@@ -191,6 +191,7 @@ void main() {
         'transcript_access': 'contingency_accessibility',
         'transcript_use_interpretation': 'assisted_not_exclusively_auditory',
         'transcript_is_answer_model': false,
+        'transcript_reveal_after_first_response_to_exercise_id': 'a1-u1-l2-e1',
       },
       'turns': [
         {
@@ -223,6 +224,10 @@ void main() {
     expect(policy.transcriptAccess, 'contingency_accessibility');
     expect(policy.transcriptIsAnswerModel, isFalse);
     expect(
+      policy.transcriptRevealAfterFirstResponseToExerciseId,
+      'a1-u1-l2-e1',
+    );
+    expect(
       conversation.turns.first.interactionFunction,
       'unexpected_follow_up',
     );
@@ -234,5 +239,18 @@ void main() {
     expect(prompt.supportLevel, 'anchors');
     expect(prompt.visibleSupport, ['Place', 'I am from']);
     expect(prompt.allowFullAnswerModel, isFalse);
+  });
+
+  test('parses strict Spanish support timing metadata', () {
+    final support = LessonExperienceLanguageSupport.fromJson({
+      'id': 'support-1',
+      'type': 'hint',
+      'en': 'Hello',
+      'es': 'Hola',
+      'stage_ids': ['encounter'],
+      'spanish_reveal_after_first_response_to_exercise_id': 'exercise-1',
+    });
+
+    expect(support.spanishRevealAfterFirstResponseToExerciseId, 'exercise-1');
   });
 }

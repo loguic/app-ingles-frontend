@@ -204,6 +204,7 @@ class AudioFirstPresentationPolicy {
     required this.transcriptAccess,
     required this.transcriptUseInterpretation,
     required this.transcriptIsAnswerModel,
+    this.transcriptRevealAfterFirstResponseToExerciseId,
   });
 
   final String primaryPresentation;
@@ -212,6 +213,7 @@ class AudioFirstPresentationPolicy {
   final String transcriptAccess;
   final String transcriptUseInterpretation;
   final bool transcriptIsAnswerModel;
+  final String? transcriptRevealAfterFirstResponseToExerciseId;
 
   factory AudioFirstPresentationPolicy.fromJson(Map<String, dynamic> json) {
     return AudioFirstPresentationPolicy(
@@ -222,6 +224,9 @@ class AudioFirstPresentationPolicy {
       transcriptUseInterpretation:
           json["transcript_use_interpretation"] as String,
       transcriptIsAnswerModel: json["transcript_is_answer_model"] as bool,
+      transcriptRevealAfterFirstResponseToExerciseId:
+          json['transcript_reveal_after_first_response_to_exercise_id']
+              as String?,
     );
   }
 }
@@ -394,6 +399,7 @@ class LessonExperienceLanguageSupport {
     this.es,
     this.usageNote,
     this.pronunciations = const [],
+    this.spanishRevealAfterFirstResponseToExerciseId,
   });
 
   final String id;
@@ -403,6 +409,7 @@ class LessonExperienceLanguageSupport {
   final String? usageNote;
   final List<LessonPronunciation> pronunciations;
   final List<String> stageIds;
+  final String? spanishRevealAfterFirstResponseToExerciseId;
 
   factory LessonExperienceLanguageSupport.fromJson(Map<String, dynamic> json) {
     final pronunciations = json['pronunciations'] as List<dynamic>? ?? [];
@@ -418,6 +425,8 @@ class LessonExperienceLanguageSupport {
           .map(LessonPronunciation.fromJson)
           .toList(),
       stageIds: (json['stage_ids'] as List<dynamic>).cast<String>(),
+      spanishRevealAfterFirstResponseToExerciseId:
+          json['spanish_reveal_after_first_response_to_exercise_id'] as String?,
     );
   }
 }

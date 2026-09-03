@@ -5,6 +5,7 @@ Map<String, dynamic> attemptJson({
   String status = 'in_progress',
   String? completedAt,
   List<Map<String, dynamic>>? evidenceStates,
+  List<String>? submittedComprehensionExerciseIds,
 }) {
   return {
     'attempt_id': 'experience-attempt-1',
@@ -35,6 +36,7 @@ Map<String, dynamic> attemptJson({
             'status': 'satisfied',
           },
         ],
+    'submitted_comprehension_exercise_ids': ?submittedComprehensionExerciseIds,
   };
 }
 
@@ -66,6 +68,25 @@ void main() {
 
     expect(record.isCompleted, isTrue);
     expect(record.completedAt, DateTime.utc(2026, 8, 31, 10, 5));
+  });
+
+  test('parses submitted comprehension exercise ids as timing facts', () {
+    final record = ExperienceAttemptRecord.fromJson(
+      attemptJson(
+        submittedComprehensionExerciseIds: ['exercise-1', 'exercise-2'],
+      ),
+    );
+
+    expect(record.submittedComprehensionExerciseIds, {
+      'exercise-1',
+      'exercise-2',
+    });
+    expect(
+      ExperienceAttemptRecord.fromJson(
+        attemptJson(),
+      ).submittedComprehensionExerciseIds,
+      isEmpty,
+    );
   });
 
   test('parses comprehension source facts including backend correctness', () {

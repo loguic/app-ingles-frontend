@@ -2514,3 +2514,53 @@ Esta anotación documenta la incorporación de infraestructura; no la mezcla con
 ### Estado documental
 
 Esta entrada prepara la bitácora local. No declara todavía este cambio documental como publicado.
+
+## B184.4 — Strict Support Timing Flutter
+
+Fecha: 2026-09-03
+
+### Estado del bloque
+
+**IMPLEMENTADO / VALIDADO TÉCNICAMENTE / READY_FOR_GIT_CLOSE**.
+
+Este slice consume la metadata B184.4 ya publicada por backend para controlar de forma estricta cuándo se puede revelar transcript audio-first y apoyo español en experiencias `3.0`. No activa A1 L1 v3 ni modifica contenido curricular.
+
+### Contrato implementado
+
+- `AudioFirstPresentationPolicy` interpreta `transcript_reveal_after_first_response_to_exercise_id`.
+- `LessonExperienceLanguageSupport` interpreta `spanish_reveal_after_first_response_to_exercise_id`.
+- `ExperienceAttemptRecord` interpreta `submitted_comprehension_exercise_ids`.
+- En v3, cuando existe el ID de timing, transcript y español permanecen bloqueados hasta que el snapshot autoritativo del intento contenga exactamente ese `exercise_id`.
+- Una respuesta enviada, correcta o incorrecta, desbloquea solo el ID que corresponda.
+- Una respuesta enviada a otro `exercise_id` no desbloquea el control.
+- La decisión no usa `isCorrect`, feedback local, evidence, completion, mastery, retention ni progress.
+
+### Compatibilidad y límites preservados
+
+- v2 conserva el comportamiento histórico aunque la metadata exista.
+- v3 sin metadata B184.4 conserva el comportamiento histórico.
+- Los controles locales de revelación solo operan después de que el gate autoritativo los permita; no anticipan el unlock.
+- No se modifican `ApiService`, endpoints, requests, backend, contenido curricular, IDs, `content_tree.json` ni el contenido histórico 2.0.
+- A1 L1 v3 permanece inactiva.
+- B181 permanece pausado y no queda reabierto por este slice.
+
+### Evidencia de validación
+
+- `flutter test`: 98 passed.
+- `flutter analyze`: `No issues found`.
+- `git diff --check`: PASS.
+- Postflight técnico: PASS, sin findings BLOCKING ni NONBLOCKING.
+- Cobertura focal: parsing de los tres campos, bloqueo previo, unlock por respuesta correcta e incorrecta, no-unlock por otro ID y compatibilidad v2/v3 sin metadata.
+
+### Archivos del slice
+
+- `lib/models/experience_attempt.dart`
+- `lib/models/lesson.dart`
+- `lib/widgets/lesson_conversation_card.dart`
+- `lib/widgets/lesson_experience_card.dart`
+- `test/experience_attempt_model_test.dart`
+- `test/lesson_conversation_model_test.dart`
+- `test/lesson_experience_card_test.dart`
+- `docs/bitacora-frontend.md`
+
+No se declara commit, push ni publicación en esta entrada. El bloque queda listo para el cierre Git seguro posterior.

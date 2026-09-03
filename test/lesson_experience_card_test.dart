@@ -247,6 +247,7 @@ ExperienceAttemptRecord attemptRecord({
   String status = 'in_progress',
   String contractVersion = '2.0',
   List<ExperienceEvidenceStateRecord> evidenceStates = const [],
+  Set<String> submittedComprehensionExerciseIds = const <String>{},
 }) {
   return ExperienceAttemptRecord(
     attemptId: attemptId,
@@ -261,6 +262,7 @@ ExperienceAttemptRecord attemptRecord({
         ? DateTime.utc(2026, 8, 31, 10, 5)
         : null,
     evidenceStates: evidenceStates,
+    submittedComprehensionExerciseIds: submittedComprehensionExerciseIds,
   );
 }
 
@@ -638,6 +640,91 @@ Lesson _comprehensionLesson(String id) => v2Lesson(
   ],
 );
 
+Lesson _strictTimingLesson({
+  String contractVersion = '3.0',
+  String? transcriptExerciseId = 'timing-exercise',
+  String? spanishExerciseId = 'timing-exercise',
+}) => v2Lesson(
+  id: 'lesson-strict-timing',
+  contractVersion: contractVersion,
+  stages: const [
+    LessonExperienceStage(
+      id: 'encounter',
+      type: 'encounter',
+      instruction: 'Listen.',
+      activityIds: ['timing-conversation'],
+      mode: 'required',
+      completionCondition: 'acknowledged',
+    ),
+    LessonExperienceStage(
+      id: 'comprehension',
+      type: 'comprehension',
+      instruction: 'Choose.',
+      activityIds: ['timing-activity'],
+      mode: 'required',
+      completionCondition: 'evidence_recorded',
+    ),
+  ],
+  conversations: [
+    Conversation(
+      id: 'timing-conversation',
+      title: 'Timing conversation',
+      audioFirstPolicy: AudioFirstPresentationPolicy(
+        primaryPresentation: 'audio',
+        audioReplayAllowed: true,
+        transcriptInitiallyHidden: true,
+        transcriptAccess: 'after_listening',
+        transcriptUseInterpretation: 'support',
+        transcriptIsAnswerModel: false,
+        transcriptRevealAfterFirstResponseToExerciseId: transcriptExerciseId,
+      ),
+      turns: const [
+        ConversationTurn(
+          id: 'timing-partner',
+          speaker: 'partner',
+          en: 'Timing transcript.',
+          pronunciations: [
+            LessonPronunciation(
+              locale: 'en-US',
+              ipa: 'timing',
+              audioAsset: 'audio/timing.wav',
+            ),
+          ],
+        ),
+      ],
+    ),
+  ],
+  support: [
+    LessonExperienceLanguageSupport(
+      id: 'timing-support',
+      type: 'hint',
+      en: 'Timing support.',
+      es: 'Apoyo temporal.',
+      stageIds: const ['encounter'],
+      spanishRevealAfterFirstResponseToExerciseId: spanishExerciseId,
+    ),
+  ],
+  evidence: const [
+    LessonExperienceEvidenceDefinition(
+      id: 'timing-evidence',
+      stageId: 'comprehension',
+      activityId: 'timing-activity',
+      evidenceType: 'comprehension_result',
+      comprehensionExerciseId: 'timing-exercise',
+    ),
+  ],
+  exercises: const [
+    LessonExercise(
+      id: 'timing-exercise',
+      type: 'multiple_choice',
+      prompt: 'Timing question?',
+      options: ['Incorrect', 'Correct'],
+      answerIndex: 1,
+      skillIds: [],
+    ),
+  ],
+);
+
 Widget _experienceShell({
   required Lesson lesson,
   required FakeExperienceApiService api,
@@ -703,6 +790,23 @@ Future<void> saveV3DirectCaptures(
     await tester.tap(save);
     await tester.pumpAndSettle();
   }
+}
+
+Future<void> listenToTimingPartner(
+  WidgetTester tester,
+  FakeExperienceAudioController audio,
+) async {
+  final listen = find.text('Escuchar al interlocutor');
+  await tester.ensureVisible(listen);
+  await tester.tap(listen);
+  await tester.pumpAndSettle();
+  audio.activePlaybackId = null;
+  audio._playback.add(null);
+  audio._completed.add(
+    'conversation-reference:timing-conversation:'
+    'timing-partner:en-US',
+  );
+  await tester.pumpAndSettle();
 }
 
 void main() {
@@ -795,6 +899,169 @@ void main() {
       expect(legacy.experience, isNull);
     },
   );
+
+  testWidgets(
+    'v3 strict timing blocks transcript and Spanish before a response',
+    (tester) async {
+      final lesson = _strictTimingLesson();
+      final api = FakeExperienceApiService(
+        startResult: attemptRecord(
+          lessonId: lesson.id,
+          contractVersion: '3.0',
+          evidenceStates: authoritativeStatesFor(
+            lesson.experience!.evidenceDefinitions,
+          ),
+        ),
+      );
+      final audio = await pumpExperience(
+        tester,
+        lesson: lesson,
+        apiService: api,
+      );
+
+      expect(find.text('Necesito apoyo en español'), findsNothing);
+      await listenToTimingPartner(tester, audio);
+      expect(find.text('Mostrar transcript por accesibilidad'), findsNothing);
+    },
+  );
+
+  testWidgets('v3 strict timing unlocks after a correct target response', (
+    tester,
+  ) async {
+    final lesson = _strictTimingLesson();
+    final states = authoritativeStatesFor(
+      lesson.experience!.evidenceDefinitions,
+    );
+    final api = FakeExperienceApiService(
+      startResult: attemptRecord(
+        lessonId: lesson.id,
+        contractVersion: '3.0',
+        evidenceStates: states,
+      ),
+      refreshResult: attemptRecord(
+        lessonId: lesson.id,
+        contractVersion: '3.0',
+        evidenceStates: states,
+        submittedComprehensionExerciseIds: const {'timing-exercise'},
+      ),
+    );
+    final audio = await pumpExperience(tester, lesson: lesson, apiService: api);
+
+    final response = find.byKey(
+      const Key('experience-comprehension-timing-exercise-option-1'),
+    );
+    await tester.ensureVisible(response);
+    await tester.tap(response);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Necesito apoyo en español'), findsOneWidget);
+    await listenToTimingPartner(tester, audio);
+    expect(find.text('Mostrar transcript por accesibilidad'), findsOneWidget);
+  });
+
+  testWidgets('v3 strict timing unlocks after an incorrect target response', (
+    tester,
+  ) async {
+    final lesson = _strictTimingLesson();
+    final states = authoritativeStatesFor(
+      lesson.experience!.evidenceDefinitions,
+    );
+    final api = FakeExperienceApiService(
+      startResult: attemptRecord(
+        lessonId: lesson.id,
+        contractVersion: '3.0',
+        evidenceStates: states,
+      ),
+      refreshResult: attemptRecord(
+        lessonId: lesson.id,
+        contractVersion: '3.0',
+        evidenceStates: states,
+        submittedComprehensionExerciseIds: const {'timing-exercise'},
+      ),
+    );
+    await pumpExperience(tester, lesson: lesson, apiService: api);
+
+    final response = find.byKey(
+      const Key('experience-comprehension-timing-exercise-option-0'),
+    );
+    await tester.ensureVisible(response);
+    await tester.tap(response);
+    await tester.pumpAndSettle();
+
+    expect(
+      find.text('Respuesta guardada. Puedes volver a intentarlo.'),
+      findsOneWidget,
+    );
+    expect(find.text('Necesito apoyo en español'), findsOneWidget);
+  });
+
+  testWidgets(
+    'v3 strict timing ignores responses submitted to another exercise',
+    (tester) async {
+      final lesson = _strictTimingLesson();
+      final api = FakeExperienceApiService(
+        startResult: attemptRecord(
+          lessonId: lesson.id,
+          contractVersion: '3.0',
+          evidenceStates: authoritativeStatesFor(
+            lesson.experience!.evidenceDefinitions,
+          ),
+          submittedComprehensionExerciseIds: const {'other-exercise'},
+        ),
+      );
+      final audio = await pumpExperience(
+        tester,
+        lesson: lesson,
+        apiService: api,
+      );
+
+      expect(find.text('Necesito apoyo en español'), findsNothing);
+      await listenToTimingPartner(tester, audio);
+      expect(find.text('Mostrar transcript por accesibilidad'), findsNothing);
+    },
+  );
+
+  testWidgets('v2 preserves support timing behavior when metadata is present', (
+    tester,
+  ) async {
+    final lesson = _strictTimingLesson(contractVersion: '2.0');
+    final api = FakeExperienceApiService(
+      startResult: attemptRecord(
+        lessonId: lesson.id,
+        evidenceStates: authoritativeStatesFor(
+          lesson.experience!.evidenceDefinitions,
+        ),
+      ),
+    );
+    final audio = await pumpExperience(tester, lesson: lesson, apiService: api);
+
+    expect(find.text('Necesito apoyo en español'), findsOneWidget);
+    await listenToTimingPartner(tester, audio);
+    expect(find.text('Mostrar transcript por accesibilidad'), findsOneWidget);
+  });
+
+  testWidgets('v3 preserves support timing behavior without new metadata', (
+    tester,
+  ) async {
+    final lesson = _strictTimingLesson(
+      transcriptExerciseId: null,
+      spanishExerciseId: null,
+    );
+    final api = FakeExperienceApiService(
+      startResult: attemptRecord(
+        lessonId: lesson.id,
+        contractVersion: '3.0',
+        evidenceStates: authoritativeStatesFor(
+          lesson.experience!.evidenceDefinitions,
+        ),
+      ),
+    );
+    final audio = await pumpExperience(tester, lesson: lesson, apiService: api);
+
+    expect(find.text('Necesito apoyo en español'), findsOneWidget);
+    await listenToTimingPartner(tester, audio);
+    expect(find.text('Mostrar transcript por accesibilidad'), findsOneWidget);
+  });
 
   testWidgets('renders every backend stage once and in received order', (
     tester,

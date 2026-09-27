@@ -2491,6 +2491,52 @@ El commit contiene exactamente los 11 paths funcionales y de tests de B183. El c
 - N3: no existe test automatizado específico del recorrido completo en ambos extremos responsive; existe validación visual humana.
 - N4: Home conserva reads backend heredados alrededor del CTA demo; las rutas demo son locales y no introducen writes backend.
 
+## A1 v4 — Incremento visual aislado con recursos aprobados
+
+Fecha: 2026-09-27
+
+Se añade `lib/screens/a1_v4_visible_demo_screen.dart`, accesible desde la
+portada B183 mediante **Abrir escena A1 v4**. La pantalla conserva B183 y su
+fixture provisional sin sustituirlos: es un puente local y aislado, no un
+loader ni una activación runtime.
+
+Los únicos bytes incorporados son copias reproducibles de los recursos A1 v4
+aprobados del backend, declarados explícitamente en `pubspec.yaml`:
+
+- `assets/a1_v4/visual/scene-water.png` procede de
+  `content/resources/a1-u1/visual/scene-water.png`, identidad
+  `visual.a1-u1-l1.scene.water.v1`, SHA-256
+  `7f923e4d276863ad60dbf8d7ffbb476e3c4921e3b32da4c9991e8779f419e7db`.
+- `assets/a1_v4/audio/i-need-water.en-gb.wav` procede de
+  `content/resources/a1-u1/audio/i-need-water.en-gb.wav`, identidad
+  `audio.a1-u1-l1.i-need-water.en-gb.v1`, SHA-256
+  `eaaddfc611105e138586fff8634d4eda18e12a522d204b5d62e0bbbbc363fa0c`.
+
+La pantalla muestra la escena, reproduce el WAV GB mediante
+`LessonPronunciationControls` y permite grabación/reproducción temporal de la
+respuesta. Usa `demoMode: true`; no produce progreso, intentos, uploads,
+mastery ni completion. Para abrirla: Inicio → **Explorar demostración** → A1
+→ **Abrir escena A1 v4**.
+
+### Aprobación humana y evidencia de cierre
+
+- Revisión humana de la nueva pantalla A1 v4: **APROBADA**.
+- La imagen `scene-water.png` se redujo al tamaño final revisado y aprobado
+  (1536 × 1024); se conserva la identidad visual y la verificación SHA-256
+  previa indicada arriba.
+- El audio británico `i-need-water.en-gb.wav` fue comprobado y funciona
+  correctamente; se preserva sin modificaciones junto con su verificación
+  SHA-256 previa indicada arriba.
+- La grabación y la reproducción local funcionan correctamente. La propia
+  grabación se percibe algo baja de volumen: queda registrada como trabajo
+  posterior y no se modifica en este incremento.
+- `flutter analyze`: PASS (`No issues found`).
+- `flutter test test/a1_v4_visible_demo_screen_test.dart`: PASS (2 tests).
+- `git diff --check`: PASS antes del cierre.
+
+Esta validación no activa A1 v4, no publica el puntero real y no incorpora
+persistencia curricular.
+
 ## Infraestructura Git segura del frontend
 
 La infraestructura se registra separadamente de B183 funcional.

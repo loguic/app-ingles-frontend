@@ -7,6 +7,7 @@ import '../services/pronunciation_audio_service.dart';
 import '../theme/loguic_theme.dart';
 import '../widgets/lesson_conversation_card.dart';
 import '../widgets/lesson_pronunciation_controls.dart';
+import 'a1_v4_visible_demo_screen.dart';
 
 class VisualDemoNotice extends StatelessWidget {
   const VisualDemoNotice({super.key});
@@ -196,6 +197,15 @@ class _VisualDemoLessonScreenState extends State<VisualDemoLessonScreen> {
     );
   }
 
+  Future<void> _openApprovedA1V4() {
+    return Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (context) =>
+            A1V4VisibleDemoScreen(audioController: _audioController),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return _DemoScaffold(
@@ -236,6 +246,15 @@ class _VisualDemoLessonScreenState extends State<VisualDemoLessonScreen> {
             description: 'Recorre una interacción sin evaluación ni guardado.',
             buttonLabel: 'Abrir conversación breve',
             onPressed: _openConversation,
+          ),
+          const SizedBox(height: 14),
+          _DemoActionCard(
+            icon: Icons.water_drop_outlined,
+            title: '3. Escena A1 v4 aprobada',
+            description:
+                'Escucha y repite “I need water.” con recursos aprobados.',
+            buttonLabel: 'Abrir escena A1 v4',
+            onPressed: _openApprovedA1V4,
           ),
           const SizedBox(height: 20),
           Align(

@@ -65,6 +65,8 @@ flutter:
   # Registra los audios locales usados por los ejercicios de escucha.
   assets:
     - assets/audio/
+    - assets/a1_v4/audio/
+    - assets/a1_v4/visual/
 
   # To add assets to your application, add an assets section, like this:
   # assets:

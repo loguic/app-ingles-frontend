@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:app_ingles/screens/a1_v4_visible_demo_screen.dart';
+import 'package:app_ingles/screens/visual_demo_screens.dart';
 import 'package:app_ingles/services/pronunciation_audio_service.dart';
 import 'package:app_ingles/theme/loguic_theme.dart';
 import 'package:flutter/material.dart';
@@ -125,6 +126,7 @@ void main() {
     );
     expect(find.text('I need water.'), findsOneWidget);
     expect(find.textContaining('No activa el currículo'), findsOneWidget);
+    expect(find.text('Choose the matching picture'), findsNothing);
 
     await tester.tap(find.byTooltip('Escuchar pronunciación'));
     await tester.pump();
@@ -132,6 +134,36 @@ void main() {
 
     audio.completePlayback();
     await tester.pump();
+    expect(find.text('Choose the matching picture'), findsOneWidget);
+    expect(
+      find.text('Elige la imagen que representa lo que escuchaste.'),
+      findsOneWidget,
+    );
+    expect(find.byKey(const Key('a1-v4-comprehension-need')), findsOneWidget);
+    expect(
+      find.byKey(const Key('a1-v4-comprehension-greeting')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const Key('a1-v4-comprehension-farewell')),
+      findsOneWidget,
+    );
+
+    await tester.ensureVisible(
+      find.byKey(const Key('a1-v4-comprehension-greeting')),
+    );
+    await tester.tap(find.byKey(const Key('a1-v4-comprehension-greeting')));
+    await tester.pump();
+    expect(find.text('Try again.'), findsOneWidget);
+
+    await tester.ensureVisible(
+      find.byKey(const Key('a1-v4-comprehension-need')),
+    );
+    await tester.tap(find.byKey(const Key('a1-v4-comprehension-need')));
+    await tester.pump();
+    expect(find.text('Correct!'), findsOneWidget);
+    expect(find.byIcon(Icons.check_circle), findsOneWidget);
+
     await tester.ensureVisible(find.text('Grabar mi voz'));
     await tester.tap(find.text('Grabar mi voz'));
     await tester.pump();
@@ -144,7 +176,87 @@ void main() {
     audio.completePlayback();
     await tester.pump();
 
+    expect(
+      find.text('Paso 4: describe cómo te escuchaste, según tu percepción.'),
+      findsOneWidget,
+    );
+    expect(find.text('Choose the matching picture'), findsOneWidget);
+    expect(find.byKey(const Key('a1-v4-comprehension-need')), findsOneWidget);
+    expect(
+      find.byKey(const Key('a1-v4-comprehension-greeting')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const Key('a1-v4-comprehension-farewell')),
+      findsOneWidget,
+    );
     expect(find.text('¿Cómo te escuchaste?'), findsNothing);
     expect(find.textContaining('puntuación'), findsNothing);
   });
+
+  testWidgets(
+    'shows comprehension again after returning and reentering A1 v4',
+    (tester) async {
+      final audio = _AudioController();
+      addTearDown(audio.dispose);
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: LoguicTheme.light,
+          home: VisualDemoLessonScreen(audioController: audio),
+        ),
+      );
+
+      Future<void> openA1V4AndFinishReference() async {
+        await tester.ensureVisible(find.text('Abrir escena A1 v4'));
+        await tester.tap(find.text('Abrir escena A1 v4'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byTooltip('Escuchar pronunciación'));
+        await tester.pump();
+        audio.completePlayback();
+        await tester.pump();
+      }
+
+      await openA1V4AndFinishReference();
+      expect(find.text('Choose the matching picture'), findsOneWidget);
+      expect(find.byKey(const Key('a1-v4-comprehension-need')), findsOneWidget);
+      expect(
+        find.byKey(const Key('a1-v4-comprehension-greeting')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const Key('a1-v4-comprehension-farewell')),
+        findsOneWidget,
+      );
+
+      await tester.ensureVisible(find.text('Volver a la demostración'));
+      await tester.tap(find.text('Volver a la demostración'));
+      await tester.pumpAndSettle();
+
+      await openA1V4AndFinishReference();
+      expect(find.text('Choose the matching picture'), findsOneWidget);
+      expect(find.byKey(const Key('a1-v4-comprehension-need')), findsOneWidget);
+      expect(
+        find.byKey(const Key('a1-v4-comprehension-greeting')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const Key('a1-v4-comprehension-farewell')),
+        findsOneWidget,
+      );
+
+      await tester.ensureVisible(
+        find.byKey(const Key('a1-v4-comprehension-greeting')),
+      );
+      await tester.tap(find.byKey(const Key('a1-v4-comprehension-greeting')));
+      await tester.pump();
+      expect(find.text('Try again.'), findsOneWidget);
+
+      await tester.ensureVisible(
+        find.byKey(const Key('a1-v4-comprehension-need')),
+      );
+      await tester.tap(find.byKey(const Key('a1-v4-comprehension-need')));
+      await tester.pump();
+      expect(find.text('Correct!'), findsOneWidget);
+    },
+  );
 }

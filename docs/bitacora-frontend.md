@@ -2537,6 +2537,93 @@ mastery ni completion. Para abrirla: Inicio → **Explorar demostración** → A
 Esta validación no activa A1 v4, no publica el puntero real y no incorpora
 persistencia curricular.
 
+### Siguiente interacción visible: comprobación de comprensión
+
+La candidata admitida `a1-u1-candidate-v4` define, tras el encuentro auditivo
+`a1-u1-l1-c1` («I need water.»), la actividad `a1-u1-l1-q1` de la etapa
+`a1-u1-l1-s2` (`comprehension`): elegir la imagen que representa la necesidad
+inmediata. Esta interacción prepara la producción posterior; no acredita
+mastery, progreso ni completion curricular.
+
+- La demostración muestra las tres opciones visuales solo al terminar la
+  escucha de la referencia y registra el resultado únicamente en memoria.
+- `option-need.png` es la respuesta definida por `answer_index: 0`; una
+  elección distinta permite reintentar y la respuesta correcta bloquea esta
+  comprobación local.
+- Se incorporaron copias verificadas de los recursos aprobados:
+  - `assets/a1_v4/visual/option-need.png` — SHA-256
+    `b0da034d57e4057b11d131c3243b0d16442597d127e954318fd5f54e209b48d6`;
+  - `assets/a1_v4/visual/option-greeting.png` — SHA-256
+    `2177ad99b9bbefe10da61633dae619cfe81e9829260e3848f65c62856984f700`;
+  - `assets/a1_v4/visual/option-farewell.png` — SHA-256
+    `fed6ee24270c5ce6cc018ff4a301c139b5c8cc21abd3e10b66fcdccf737a570e`.
+
+La escena y el audio británico aprobados permanecen sin modificaciones. A1 v4
+continúa aislada e inactiva.
+
+Validación focal: `flutter analyze` sin incidencias y
+`flutter test test/a1_v4_visible_demo_screen_test.dart` con 2 tests superados.
+
+### Ajuste visual posterior a Human Review
+
+La comprobación `a1-u1-l1-q1` conserva sus tres imágenes, el reintento tras
+error y el orden pedagógico. Su presentación ahora muestra el título
+`Choose the matching picture` y la instrucción
+`Elige la imagen que representa lo que escuchaste.`. La respuesta correcta se
+presenta mediante un panel accesible destacado con icono de acierto y el texto
+`Correct!`; no añade puntuación, progreso, mastery ni persistencia.
+
+Validación del ajuste: `flutter analyze` PASS, prueba focal PASS (2 tests) y
+`git diff --check` PASS.
+
+### Corrección focal de visibilidad de comprensión
+
+La causa fue una dependencia de estado frágil: la pantalla A1 v4 mostraba
+`a1-u1-l1-q1` solo si el control hijo de pronunciación invocaba su callback
+opcional `onReferenceListened`. El propio control avanza con el evento real
+`onPlaybackCompleted`, pero la pantalla padre no lo observaba directamente;
+la prueba previa tampoco comprobaba la visibilidad después de reproducir la
+captura y alcanzar el paso 4.
+
+La pantalla ahora se suscribe al mismo `onPlaybackCompleted` del controlador
+compartido y habilita las imágenes solo cuando recibe exactamente
+`reference:demo-visual-a1-v4-i-need-water:en-GB`. No se usa temporizador ni
+se adelanta el desbloqueo. La regresión focal cubre la escucha, las tres
+opciones, error/reintento, `Correct!`, grabación, reproducción de voz y el
+paso 4 de pronunciación, confirmando que las opciones siguen presentes.
+
+No se detectó conflicto de orden curricular: la comprobación continúa después
+de la escucha autorizada y no altera la secuencia pedagógica de la demo.
+
+### Diagnóstico de reentrada A1 v4
+
+Se añadió una regresión de navegación real desde `VisualDemoLessonScreen`:
+primera entrada A1 v4 → finalización del audio → tres opciones → volver a la
+demostración → segunda entrada → nueva finalización del mismo audio → tres
+opciones, reintento y `Correct!`. Con el controlador de audio compartido de la
+demo, la prueba pasa en ambas visitas. Por ello, el fallo observado en Human
+Review no se reproduce en el estado actual del código y no se aplicó una
+corrección de producción especulativa. La condición que falta para atribuir
+una causa concreta es observar la ejecución real que no emite o no entrega el
+evento `onPlaybackCompleted` en la segunda visita, pese a que el flujo
+automatizado equivalente lo recibe.
+
+### Cierre de Human Review y limpieza temporal
+
+Human Review final: **PASS** en la primera entrada y en la reentrada limpia de
+A1 v4. Tras finalizar la escucha, las tres opciones se muestran; el error
+permite reintentar, la respuesta correcta muestra `Correct!` y la segunda
+visita repite el mismo recorrido correctamente.
+
+La instrumentación temporal `A1_AUDIO_TRACE` se retiró por completo antes de
+este cierre. `PronunciationAudioService` volvió al contenido funcional del
+baseline publicado; no se introdujeron cambios de timing, navegación,
+`AudioPlayer` ni contratos de audio como parte de la limpieza.
+
+La causa histórica del fallo observado anteriormente sigue **sin confirmar**.
+El resultado limpio de Human Review no atribuye una causa ni declara que se
+haya demostrado una corrección causal.
+
 ## Infraestructura Git segura del frontend
 
 La infraestructura se registra separadamente de B183 funcional.

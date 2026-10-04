@@ -36,6 +36,8 @@ class _A1V4VisibleDemoScreenState extends State<A1V4VisibleDemoScreen> {
   late final StreamSubscription<String> _referenceCompletionSubscription;
   bool _referenceListened = false;
   bool? _comprehensionAnswerIsCorrect;
+  bool _fullModelVisible = false;
+  bool _ownProductionStarted = false;
 
   @override
   void initState() {
@@ -93,16 +95,28 @@ class _A1V4VisibleDemoScreenState extends State<A1V4VisibleDemoScreen> {
                     ),
                   ),
                   const SizedBox(height: 20),
-                  Text(
-                    'I need water.',
-                    style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                      color: LoguicTheme.deepNavy,
-                      fontWeight: FontWeight.w800,
+                  if (_fullModelVisible && !_ownProductionStarted) ...[
+                    Text(
+                      'I need water.',
+                      style: Theme.of(context).textTheme.headlineMedium
+                          ?.copyWith(
+                            color: LoguicTheme.deepNavy,
+                            fontWeight: FontWeight.w800,
+                          ),
                     ),
-                  ),
-                  const SizedBox(height: 8),
+                    const SizedBox(height: 8),
+                  ],
                   const Text('Listen. Say it.'),
                   const SizedBox(height: 16),
+                  const Text(
+                    'Listen and repeat for self-perception',
+                    style: TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                  const SizedBox(height: 4),
+                  const Text(
+                    'This is repetition practice for how you hear yourself; '
+                    'it is not your own oral production.',
+                  ),
                   LessonPronunciationControls(
                     exampleId: 'demo-visual-a1-v4-i-need-water',
                     pronunciations: const [
@@ -121,10 +135,38 @@ class _A1V4VisibleDemoScreenState extends State<A1V4VisibleDemoScreen> {
                       answerIsCorrect: _comprehensionAnswerIsCorrect,
                       onAnswer: (answerIsCorrect) {
                         setState(
-                          () => _comprehensionAnswerIsCorrect = answerIsCorrect,
+                          () {
+                            _comprehensionAnswerIsCorrect = answerIsCorrect;
+                            _fullModelVisible = true;
+                          },
                         );
                       },
                     ),
+                  ],
+                  if (_comprehensionAnswerIsCorrect == true &&
+                      !_ownProductionStarted) ...[
+                    const SizedBox(height: 24),
+                    const Text(
+                      'Your own oral production',
+                      style: TextStyle(fontWeight: FontWeight.w700),
+                    ),
+                    const SizedBox(height: 4),
+                    const Text(
+                      'When you start, the full model is hidden before you '
+                      'record your own words.',
+                    ),
+                    const SizedBox(height: 12),
+                    FilledButton(
+                      key: const Key('a1-v4-start-own-production'),
+                      onPressed: () {
+                        setState(() => _ownProductionStarted = true);
+                      },
+                      child: const Text('Start my own oral production'),
+                    ),
+                  ],
+                  if (_ownProductionStarted) ...[
+                    const SizedBox(height: 24),
+                    _A1V4OwnProduction(audioController: _audioController),
                   ],
                   const SizedBox(height: 20),
                   Align(
@@ -281,6 +323,141 @@ class _A1V4SuccessFeedback extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _A1V4OwnProduction extends StatefulWidget {
+  const _A1V4OwnProduction({required this.audioController});
+
+  final PronunciationAudioController audioController;
+
+  @override
+  State<_A1V4OwnProduction> createState() => _A1V4OwnProductionState();
+}
+
+class _A1V4OwnProductionState extends State<_A1V4OwnProduction> {
+  static const _recordingId = 'demo-visual-a1-v4-own-production';
+
+  late final StreamSubscription<String?> _recordingSubscription;
+  String? _activeRecordingId;
+  String? _recordingPath;
+
+  bool get _isRecording => _activeRecordingId == _recordingId;
+  bool get _anotherRecordingIsActive =>
+      _activeRecordingId != null && !_isRecording;
+
+  @override
+  void initState() {
+    super.initState();
+    _recordingSubscription = widget.audioController.onRecordingChanged.listen((
+      recordingId,
+    ) {
+      if (mounted) setState(() => _activeRecordingId = recordingId);
+    });
+  }
+
+  @override
+  void dispose() {
+    unawaited(_recordingSubscription.cancel());
+    final path = _recordingPath;
+    if (path != null) unawaited(widget.audioController.deleteRecording(path));
+    super.dispose();
+  }
+
+  Future<void> _startRecording() async {
+    if (_activeRecordingId != null) return;
+    await widget.audioController.startRecording(_recordingId);
+  }
+
+  Future<void> _stopRecording() async {
+    if (!_isRecording) return;
+    final path = await widget.audioController.stopRecording();
+    if (mounted) setState(() => _recordingPath = path);
+  }
+
+  Future<void> _playRecording() async {
+    final path = _recordingPath;
+    if (path == null || _activeRecordingId != null) return;
+    await widget.audioController.playRecording(
+      path,
+      playbackId: 'recording:$_recordingId',
+    );
+  }
+
+  Future<void> _deleteRecording() async {
+    final path = _recordingPath;
+    if (path == null || _isRecording) return;
+    await widget.audioController.deleteRecording(path);
+    if (mounted) setState(() => _recordingPath = null);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      container: true,
+      label: 'Own oral production',
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Your own oral production',
+            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+              color: LoguicTheme.deepNavy,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 4),
+          const Text('Look at the scene. Say what you need.'),
+          const SizedBox(height: 12),
+          const Wrap(
+            spacing: 8,
+            children: [
+              Chip(label: Text('I')),
+              Chip(label: Text('need')),
+              Chip(label: Text('water')),
+            ],
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            'These are word anchors, not a full sentence model. '
+            'Your recording stays temporary in this demo.',
+          ),
+          const SizedBox(height: 12),
+          if (_isRecording)
+            FilledButton.icon(
+              key: const Key('a1-v4-stop-own-production'),
+              onPressed: _stopRecording,
+              icon: const Icon(Icons.stop),
+              label: const Text('Stop my own production'),
+            )
+          else
+            FilledButton.icon(
+              key: const Key('a1-v4-record-own-production'),
+              onPressed: _anotherRecordingIsActive ? null : _startRecording,
+              icon: const Icon(Icons.mic),
+              label: const Text('Record my own production'),
+            ),
+          if (_recordingPath != null && !_isRecording) ...[
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              children: [
+                OutlinedButton.icon(
+                  onPressed: _playRecording,
+                  icon: const Icon(Icons.play_arrow),
+                  label: const Text('Play my own production'),
+                ),
+                TextButton.icon(
+                  onPressed: _deleteRecording,
+                  icon: const Icon(Icons.delete_outline),
+                  label: const Text('Delete temporary recording'),
+                ),
+              ],
+            ),
+          ],
+        ],
       ),
     );
   }

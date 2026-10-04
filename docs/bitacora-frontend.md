@@ -2697,3 +2697,47 @@ Este slice consume la metadata B184.4 ya publicada por backend para controlar de
 - `docs/bitacora-frontend.md`
 
 No se declara commit, push ni publicación en esta entrada. El bloque queda listo para el cierre Git seguro posterior.
+
+## A1 v4 — First bounded Gate 2 demo increment
+
+### Estado
+
+**IMPLEMENTED / POSTFLIGHT PASS / READY FOR CLOSURE**.
+
+Se implementó el primer incremento acotado de Gate 2 en la demo aislada A1
+v4. La implementación y el postflight independiente finalizaron en PASS, con
+`BLOCKING=0` y `NONBLOCKING=0`.
+
+### Comportamiento validado
+
+- El modelo completo permanece oculto al inicio y después de reproducir la
+  referencia; la primera respuesta de comprensión es el punto autorizado de
+  revelación.
+- La repetición para autopercepción se distingue explícitamente de la propia
+  producción oral.
+- La producción propia solo queda disponible tras comprensión correcta; al
+  iniciarla se oculta el modelo completo.
+- La grabación de producción propia mantiene estado e identidad local
+  separados. El estado es local, solo de demo, y se restablece al reentrar.
+
+### Evidencia reutilizada
+
+- Prueba Flutter focal: 3 PASS.
+- `git diff --check`: PASS.
+
+### Exclusiones preservadas
+
+- Sin etapa de apoyo inferior, transferencia cercana, revisión cualitativa
+  humana ni retención de 24–48 h.
+- Sin mastery, progreso ni completion.
+- Sin integración backend/runtime; sin loader, activación, runtime pointer ni
+  B181.
+- Sin vocabulario ni gramática nuevos.
+
+### Siguiente paso
+
+Tras el cierre frontend, volver a la autoridad canónica LOGUIC English para
+acotar el siguiente incremento de Gate 2. Este estado no autoriza
+automáticamente apoyo inferior, transferencia, revisión ni retención.
+
+No se declara CLOSED, PUBLISHED ni SYNCED en esta entrada.

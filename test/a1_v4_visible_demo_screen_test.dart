@@ -12,6 +12,8 @@ class _AudioController implements PronunciationAudioController {
   final _completed = StreamController<String>.broadcast();
   final _recording = StreamController<String?>.broadcast();
   final List<String> references = [];
+  final List<String> recordingIds = [];
+  final List<String?> recordingPlaybackIds = [];
 
   @override
   String? activePlaybackId;
@@ -40,6 +42,7 @@ class _AudioController implements PronunciationAudioController {
 
   @override
   Future<void> playRecording(String path, {String? playbackId}) async {
+    recordingPlaybackIds.add(playbackId);
     activePlaybackId = playbackId;
     _playback.add(playbackId);
   }
@@ -59,6 +62,7 @@ class _AudioController implements PronunciationAudioController {
 
   @override
   Future<void> startRecording(String recordingId) async {
+    recordingIds.add(recordingId);
     activeRecordingId = recordingId;
     _recording.add(recordingId);
   }
@@ -124,10 +128,19 @@ void main() {
       tester.getSize(find.byKey(const Key('a1-v4-water-scene-frame'))).height,
       280,
     );
-    expect(find.text('I need water.'), findsOneWidget);
+    expect(find.text('I need water.'), findsNothing);
     expect(find.textContaining('No activa el currículo'), findsOneWidget);
+    expect(
+      find.text('Listen and repeat for self-perception'),
+      findsOneWidget,
+    );
+    expect(
+      find.textContaining('it is not your own oral production.'),
+      findsOneWidget,
+    );
     expect(find.text('Choose the matching picture'), findsNothing);
 
+    await tester.ensureVisible(find.byTooltip('Escuchar pronunciación'));
     await tester.tap(find.byTooltip('Escuchar pronunciación'));
     await tester.pump();
     expect(audio.references, [A1V4VisibleDemoScreen.audioAsset]);
@@ -135,6 +148,7 @@ void main() {
     audio.completePlayback();
     await tester.pump();
     expect(find.text('Choose the matching picture'), findsOneWidget);
+    expect(find.text('I need water.'), findsNothing);
     expect(
       find.text('Elige la imagen que representa lo que escuchaste.'),
       findsOneWidget,
@@ -155,6 +169,7 @@ void main() {
     await tester.tap(find.byKey(const Key('a1-v4-comprehension-greeting')));
     await tester.pump();
     expect(find.text('Try again.'), findsOneWidget);
+    expect(find.text('I need water.'), findsOneWidget);
 
     await tester.ensureVisible(
       find.byKey(const Key('a1-v4-comprehension-need')),
@@ -163,6 +178,17 @@ void main() {
     await tester.pump();
     expect(find.text('Correct!'), findsOneWidget);
     expect(find.byIcon(Icons.check_circle), findsOneWidget);
+
+    await tester.ensureVisible(
+      find.byKey(const Key('a1-v4-start-own-production')),
+    );
+    await tester.tap(find.byKey(const Key('a1-v4-start-own-production')));
+    await tester.pump();
+    expect(find.text('I need water.'), findsNothing);
+    expect(find.text('Your own oral production'), findsOneWidget);
+    expect(find.text('I'), findsOneWidget);
+    expect(find.text('need'), findsOneWidget);
+    expect(find.text('water'), findsOneWidget);
 
     await tester.ensureVisible(find.text('Grabar mi voz'));
     await tester.tap(find.text('Grabar mi voz'));
@@ -192,6 +218,38 @@ void main() {
     );
     expect(find.text('¿Cómo te escuchaste?'), findsNothing);
     expect(find.textContaining('puntuación'), findsNothing);
+
+    await tester.ensureVisible(
+      find.byKey(const Key('a1-v4-record-own-production')),
+    );
+    await tester.tap(find.byKey(const Key('a1-v4-record-own-production')));
+    await tester.pump();
+    await tester.tap(find.byKey(const Key('a1-v4-stop-own-production')));
+    await tester.pump();
+    await tester.ensureVisible(find.text('Play my own production'));
+    await tester.tap(find.text('Play my own production'));
+    await tester.pump();
+
+    expect(
+      audio.recordingIds,
+      [
+        'demo-visual-a1-v4-i-need-water',
+        'demo-visual-a1-v4-own-production',
+      ],
+    );
+    expect(
+      audio.recordingPlaybackIds,
+      [
+        'recording:demo-visual-a1-v4-i-need-water',
+        'recording:demo-visual-a1-v4-own-production',
+      ],
+    );
+    expect(find.textContaining('transfer'), findsNothing);
+    expect(find.textContaining('review'), findsNothing);
+    expect(find.textContaining('retention'), findsNothing);
+    expect(find.textContaining('progress'), findsNothing);
+    expect(find.textContaining('mastery'), findsNothing);
+    expect(find.textContaining('completion'), findsNothing);
   });
 
   testWidgets(
@@ -210,6 +268,7 @@ void main() {
         await tester.ensureVisible(find.text('Abrir escena A1 v4'));
         await tester.tap(find.text('Abrir escena A1 v4'));
         await tester.pumpAndSettle();
+        await tester.ensureVisible(find.byTooltip('Escuchar pronunciación'));
         await tester.tap(find.byTooltip('Escuchar pronunciación'));
         await tester.pump();
         audio.completePlayback();
@@ -218,6 +277,7 @@ void main() {
 
       await openA1V4AndFinishReference();
       expect(find.text('Choose the matching picture'), findsOneWidget);
+      expect(find.text('I need water.'), findsNothing);
       expect(find.byKey(const Key('a1-v4-comprehension-need')), findsOneWidget);
       expect(
         find.byKey(const Key('a1-v4-comprehension-greeting')),

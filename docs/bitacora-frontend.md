@@ -2741,3 +2741,39 @@ acotar el siguiente incremento de Gate 2. Este estado no autoriza
 automáticamente apoyo inferior, transferencia, revisión ni retención.
 
 No se declara CLOSED, PUBLISHED ni SYNCED en esta entrada.
+
+## A1 v4 — Gate 2 lower-support demo increment
+
+### Estado
+
+**IMPLEMENTED / POSTFLIGHT PASS / READY FOR CLOSURE**.
+
+IMPLEMENTATION PASS e independent POSTFLIGHT PASS, con `BLOCKING=0`,
+`NONBLOCKING=0` y `SCOPE_CREEP=NO`. Se reutiliza evidencia: prueba Flutter
+focal PASS y `git diff --check` PASS.
+
+### Comportamiento validado
+
+- La primera producción propia conserva la escena de agua y los anclajes
+  `I` / `need` / `water`.
+- La segunda producción propia se desbloquea únicamente al completar la
+  primera grabación; usa el mismo contexto de agua aprobado, sin modelo de
+  oración completa ni anclajes `I` / `need` / `water`.
+- La grabación/reproducción de apoyo inferior tiene identidad y estado local
+  distintos. El reset o la reentrada limpian ambos pasos de producción.
+- Completar una grabación solo desbloquea el siguiente paso de demo; no
+  implica evaluación, éxito, progreso, mastery ni completion.
+
+### Exclusiones preservadas
+
+- Sin transferencia cercana, revisión cualitativa humana ni retención de
+  24–48 h.
+- Sin integración backend/runtime; sin loader, activación, runtime pointer ni
+  B181.
+- Sin vocabulario ni gramática nuevos.
+
+### Siguiente paso
+
+Tras el cierre frontend, volver a la autoridad canónica LOGUIC English y
+acotar por separado el incremento de transferencia cercana. Esta entrada no
+autoriza automáticamente transferencia, revisión ni retención.

@@ -226,24 +226,61 @@ void main() {
     await tester.pump();
     await tester.tap(find.byKey(const Key('a1-v4-stop-own-production')));
     await tester.pump();
+    final lowerSupport = find.byKey(
+      const Key('a1-v4-lower-support-own-production'),
+    );
+    expect(lowerSupport, findsOneWidget);
+    expect(
+      find.descendant(of: lowerSupport, matching: find.text('I')),
+      findsNothing,
+    );
+    expect(
+      find.descendant(of: lowerSupport, matching: find.text('need')),
+      findsNothing,
+    );
+    expect(
+      find.descendant(of: lowerSupport, matching: find.text('water')),
+      findsNothing,
+    );
+    expect(
+      find.descendant(of: lowerSupport, matching: find.text('I need water.')),
+      findsNothing,
+    );
+    expect(
+      find.descendant(
+        of: lowerSupport,
+        matching: find.text('Look at the scene. Speak in your own words.'),
+      ),
+      findsOneWidget,
+    );
     await tester.ensureVisible(find.text('Play my own production'));
     await tester.tap(find.text('Play my own production'));
     await tester.pump();
 
-    expect(
-      audio.recordingIds,
-      [
-        'demo-visual-a1-v4-i-need-water',
-        'demo-visual-a1-v4-own-production',
-      ],
+    await tester.ensureVisible(
+      find.byKey(const Key('a1-v4-record-lower-support-own-production')),
     );
-    expect(
-      audio.recordingPlaybackIds,
-      [
-        'recording:demo-visual-a1-v4-i-need-water',
-        'recording:demo-visual-a1-v4-own-production',
-      ],
+    await tester.tap(
+      find.byKey(const Key('a1-v4-record-lower-support-own-production')),
     );
+    await tester.pump();
+    await tester.tap(
+      find.byKey(const Key('a1-v4-stop-lower-support-own-production')),
+    );
+    await tester.pump();
+    await tester.tap(find.text('Play my own production').last);
+    await tester.pump();
+
+    expect(audio.recordingIds, [
+      'demo-visual-a1-v4-i-need-water',
+      'demo-visual-a1-v4-own-production',
+      'demo-visual-a1-v4-lower-support-own-production',
+    ]);
+    expect(audio.recordingPlaybackIds, [
+      'recording:demo-visual-a1-v4-i-need-water',
+      'recording:demo-visual-a1-v4-own-production',
+      'recording:demo-visual-a1-v4-lower-support-own-production',
+    ]);
     expect(find.textContaining('transfer'), findsNothing);
     expect(find.textContaining('review'), findsNothing);
     expect(find.textContaining('retention'), findsNothing);
@@ -317,6 +354,43 @@ void main() {
       await tester.tap(find.byKey(const Key('a1-v4-comprehension-need')));
       await tester.pump();
       expect(find.text('Correct!'), findsOneWidget);
+
+      await tester.ensureVisible(
+        find.byKey(const Key('a1-v4-start-own-production')),
+      );
+      await tester.tap(find.byKey(const Key('a1-v4-start-own-production')));
+      await tester.pump();
+      await tester.tap(find.byKey(const Key('a1-v4-record-own-production')));
+      await tester.pump();
+      await tester.tap(find.byKey(const Key('a1-v4-stop-own-production')));
+      await tester.pump();
+      expect(
+        find.byKey(const Key('a1-v4-lower-support-own-production')),
+        findsOneWidget,
+      );
+
+      await tester.ensureVisible(find.text('Volver a la demostración'));
+      await tester.tap(find.text('Volver a la demostración'));
+      await tester.pumpAndSettle();
+
+      await openA1V4AndFinishReference();
+      await tester.ensureVisible(
+        find.byKey(const Key('a1-v4-comprehension-need')),
+      );
+      await tester.tap(find.byKey(const Key('a1-v4-comprehension-need')));
+      await tester.pump();
+      await tester.ensureVisible(
+        find.byKey(const Key('a1-v4-start-own-production')),
+      );
+      await tester.tap(find.byKey(const Key('a1-v4-start-own-production')));
+      await tester.pump();
+      expect(
+        find.byKey(const Key('a1-v4-lower-support-own-production')),
+        findsNothing,
+      );
+      expect(find.text('I'), findsOneWidget);
+      expect(find.text('need'), findsOneWidget);
+      expect(find.text('water'), findsOneWidget);
     },
   );
 }

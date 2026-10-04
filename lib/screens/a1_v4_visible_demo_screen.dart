@@ -38,6 +38,7 @@ class _A1V4VisibleDemoScreenState extends State<A1V4VisibleDemoScreen> {
   bool? _comprehensionAnswerIsCorrect;
   bool _fullModelVisible = false;
   bool _ownProductionStarted = false;
+  bool _lowerSupportProductionUnlocked = false;
 
   @override
   void initState() {
@@ -166,7 +167,31 @@ class _A1V4VisibleDemoScreenState extends State<A1V4VisibleDemoScreen> {
                   ],
                   if (_ownProductionStarted) ...[
                     const SizedBox(height: 24),
-                    _A1V4OwnProduction(audioController: _audioController),
+                    _A1V4OwnProduction(
+                      key: const Key('a1-v4-anchored-own-production'),
+                      audioController: _audioController,
+                      recordingId: 'demo-visual-a1-v4-own-production',
+                      controlId: 'own-production',
+                      productionPrompt: 'Look at the scene. Say what you need.',
+                      showWordAnchors: true,
+                      onRecordingCompleted: () {
+                        if (!_lowerSupportProductionUnlocked) {
+                          setState(() => _lowerSupportProductionUnlocked = true);
+                        }
+                      },
+                    ),
+                  ],
+                  if (_lowerSupportProductionUnlocked) ...[
+                    const SizedBox(height: 24),
+                    _A1V4OwnProduction(
+                      key: const Key('a1-v4-lower-support-own-production'),
+                      audioController: _audioController,
+                      recordingId:
+                          'demo-visual-a1-v4-lower-support-own-production',
+                      controlId: 'lower-support-own-production',
+                      productionPrompt: 'Look at the scene. Speak in your own words.',
+                      showWordAnchors: false,
+                    ),
                   ],
                   const SizedBox(height: 20),
                   Align(
@@ -329,22 +354,33 @@ class _A1V4SuccessFeedback extends StatelessWidget {
 }
 
 class _A1V4OwnProduction extends StatefulWidget {
-  const _A1V4OwnProduction({required this.audioController});
+  const _A1V4OwnProduction({
+    required this.audioController,
+    required this.recordingId,
+    required this.controlId,
+    required this.productionPrompt,
+    required this.showWordAnchors,
+    this.onRecordingCompleted,
+    super.key,
+  });
 
   final PronunciationAudioController audioController;
+  final String recordingId;
+  final String controlId;
+  final String productionPrompt;
+  final bool showWordAnchors;
+  final VoidCallback? onRecordingCompleted;
 
   @override
   State<_A1V4OwnProduction> createState() => _A1V4OwnProductionState();
 }
 
 class _A1V4OwnProductionState extends State<_A1V4OwnProduction> {
-  static const _recordingId = 'demo-visual-a1-v4-own-production';
-
   late final StreamSubscription<String?> _recordingSubscription;
   String? _activeRecordingId;
   String? _recordingPath;
 
-  bool get _isRecording => _activeRecordingId == _recordingId;
+  bool get _isRecording => _activeRecordingId == widget.recordingId;
   bool get _anotherRecordingIsActive =>
       _activeRecordingId != null && !_isRecording;
 
@@ -368,13 +404,16 @@ class _A1V4OwnProductionState extends State<_A1V4OwnProduction> {
 
   Future<void> _startRecording() async {
     if (_activeRecordingId != null) return;
-    await widget.audioController.startRecording(_recordingId);
+    await widget.audioController.startRecording(widget.recordingId);
   }
 
   Future<void> _stopRecording() async {
     if (!_isRecording) return;
     final path = await widget.audioController.stopRecording();
-    if (mounted) setState(() => _recordingPath = path);
+    if (mounted) {
+      setState(() => _recordingPath = path);
+      if (path != null) widget.onRecordingCompleted?.call();
+    }
   }
 
   Future<void> _playRecording() async {
@@ -382,7 +421,7 @@ class _A1V4OwnProductionState extends State<_A1V4OwnProduction> {
     if (path == null || _activeRecordingId != null) return;
     await widget.audioController.playRecording(
       path,
-      playbackId: 'recording:$_recordingId',
+      playbackId: 'recording:${widget.recordingId}',
     );
   }
 
@@ -397,44 +436,50 @@ class _A1V4OwnProductionState extends State<_A1V4OwnProduction> {
   Widget build(BuildContext context) {
     return Semantics(
       container: true,
-      label: 'Own oral production',
+      label: widget.showWordAnchors
+          ? 'Own oral production'
+          : 'Own oral production with lower support',
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Your own oral production',
+            widget.showWordAnchors
+                ? 'Your own oral production'
+                : 'Your own oral production — lower support',
             style: Theme.of(context).textTheme.titleLarge?.copyWith(
               color: LoguicTheme.deepNavy,
               fontWeight: FontWeight.w800,
             ),
           ),
           const SizedBox(height: 4),
-          const Text('Look at the scene. Say what you need.'),
+          Text(widget.productionPrompt),
           const SizedBox(height: 12),
-          const Wrap(
-            spacing: 8,
-            children: [
-              Chip(label: Text('I')),
-              Chip(label: Text('need')),
-              Chip(label: Text('water')),
-            ],
-          ),
-          const SizedBox(height: 8),
-          const Text(
-            'These are word anchors, not a full sentence model. '
-            'Your recording stays temporary in this demo.',
-          ),
+          if (widget.showWordAnchors) ...[
+            const Wrap(
+              spacing: 8,
+              children: [
+                Chip(label: Text('I')),
+                Chip(label: Text('need')),
+                Chip(label: Text('water')),
+              ],
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'These are word anchors, not a full sentence model. '
+              'Your recording stays temporary in this demo.',
+            ),
+          ],
           const SizedBox(height: 12),
           if (_isRecording)
             FilledButton.icon(
-              key: const Key('a1-v4-stop-own-production'),
+              key: Key('a1-v4-stop-${widget.controlId}'),
               onPressed: _stopRecording,
               icon: const Icon(Icons.stop),
               label: const Text('Stop my own production'),
             )
           else
             FilledButton.icon(
-              key: const Key('a1-v4-record-own-production'),
+              key: Key('a1-v4-record-${widget.controlId}'),
               onPressed: _anotherRecordingIsActive ? null : _startRecording,
               icon: const Icon(Icons.mic),
               label: const Text('Record my own production'),

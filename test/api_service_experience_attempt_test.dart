@@ -249,4 +249,68 @@ void main() {
       );
     },
   );
+
+  test(
+    'spoken-turn evaluation sends STT, support, and prior evidence',
+    () async {
+      late http.Request captured;
+      final service = ApiService(
+        client: MockClient((request) async {
+          captured = request;
+          return http.Response(
+            jsonEncode({
+              'semantic_evaluation': {
+                'status': 'adequate',
+                'context_relevant': true,
+                'rationale': 'Clear request.',
+              },
+              'conversational_feedback': 'I understand.',
+              'next_turn': {
+                'action': 'reduce_support',
+                'support_level': 'none',
+                'reason': 'Try without anchors.',
+              },
+              'cross_turn_improvement': {
+                'comparison_available': true,
+                'trend': 'improved',
+                'evidence': 'Less support was used.',
+              },
+              'provenance': {'provider': 'ollama', 'model': 'llama-test'},
+              'mastery_awarded': false,
+            }),
+            200,
+          );
+        }),
+      );
+
+      final result = await service.evaluateSpokenTurn(
+        transcript: 'I need water',
+        audioReference: 'production-audio://water',
+        target: {
+          'communicative_goal': 'Request water.',
+          'required_meaning_terms': ['need', 'water'],
+        },
+        context: 'At a refill tap.',
+        currentTurn: {
+          'turn_id': 'water-1',
+          'support_level': 'anchors',
+          'visible_support': ['I', 'need', 'water'],
+        },
+        priorTurnEvidence: [
+          {
+            'turn_id': 'earlier',
+            'semantic_status': 'adequate',
+            'matched_meaning_terms': ['need'],
+            'missing_meaning_terms': <String>[],
+          },
+        ],
+      );
+
+      expect(captured.url.path, '/api/v1/spoken-turn-evaluations');
+      expect(decodeBody(captured)['transcript_source'], 'stt');
+      expect(decodeBody(captured)['prior_turn_evidence'], isNotEmpty);
+      expect(result.conversationalFeedback, 'I understand.');
+      expect(result.nextAction, 'reduce_support');
+    },
+  );
 }

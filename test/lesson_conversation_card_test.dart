@@ -29,6 +29,12 @@ class FakeConversationAudioController implements PronunciationAudioController {
   Stream<String> get onPlaybackCompleted => _completed.stream;
 
   @override
+  Stream<Duration> get onPlaybackPosition => const Stream.empty();
+
+  @override
+  Stream<Duration> get onPlaybackDuration => const Stream.empty();
+
+  @override
   Stream<String?> get onRecordingChanged => _recording.stream;
 
   @override

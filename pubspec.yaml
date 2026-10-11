@@ -38,6 +38,7 @@ dependencies:
   audioplayers: ^6.7.1
   record: ^6.2.1
   sherpa_onnx: ^1.13.4
+  shared_preferences: ^2.5.3
 
 dev_dependencies:
   flutter_test:

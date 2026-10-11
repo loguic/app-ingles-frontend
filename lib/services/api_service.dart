@@ -6,6 +6,7 @@ import '../models/experience_attempt.dart';
 import "../models/conversation_attempt_record.dart";
 import "../models/conversation_production_record.dart";
 import "../models/progress_record.dart";
+import '../models/spoken_turn_evaluation.dart';
 import 'package:http/http.dart' as http;
 
 /// Service responsible for communicating with the backend API.
@@ -34,6 +35,54 @@ class ApiService {
     final encodedBody = jsonEncode(body);
     return _client?.post(uri, headers: headers, body: encodedBody) ??
         http.post(uri, headers: headers, body: encodedBody);
+  }
+
+  /// Requests real, non-authoritative spoken-turn coaching from the backend.
+  /// No local semantic interpretation or adaptive decision is made here.
+  Future<SpokenTurnEvaluation> evaluateSpokenTurn({
+    required String transcript,
+    required Map<String, dynamic> target,
+    required String context,
+    required Map<String, dynamic> currentTurn,
+    required List<Map<String, dynamic>> priorTurnEvidence,
+    String? audioReference,
+    String? experienceAttemptId,
+  }) async {
+    final response =
+        await _postJson(Uri.parse('$baseUrl/spoken-turn-evaluations'), {
+          'experience_attempt_id': ?experienceAttemptId,
+          'transcript': transcript,
+          'transcript_source': 'stt',
+          'audio_reference': ?audioReference,
+          'target': target,
+          'context': context,
+          'current_turn': currentTurn,
+          'prior_turn_evidence': priorTurnEvidence,
+        });
+    if (response.statusCode != 200) {
+      throw SpokenTurnEvaluationException(_responseDetail(response));
+    }
+    try {
+      return SpokenTurnEvaluation.fromJson(
+        jsonDecode(response.body) as Map<String, dynamic>,
+      );
+    } on FormatException {
+      throw const SpokenTurnEvaluationException(
+        'The spoken-turn service returned an unreadable response.',
+      );
+    }
+  }
+
+  String _responseDetail(http.Response response) {
+    try {
+      final data = jsonDecode(response.body);
+      if (data is Map<String, dynamic> && data['detail'] is String) {
+        return data['detail'] as String;
+      }
+    } catch (_) {
+      // Keep the learner-facing error safe when a proxy returns non-JSON.
+    }
+    return 'Spoken-turn feedback is unavailable (HTTP ${response.statusCode}).';
   }
 
   /// Checks if the backend health endpoint is available.

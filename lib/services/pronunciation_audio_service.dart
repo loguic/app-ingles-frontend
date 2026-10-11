@@ -15,6 +15,10 @@ abstract interface class PronunciationAudioController {
 
   Stream<String> get onPlaybackCompleted => const Stream.empty();
 
+  Stream<Duration> get onPlaybackPosition => const Stream.empty();
+
+  Stream<Duration> get onPlaybackDuration => const Stream.empty();
+
   Stream<String?> get onRecordingChanged;
 
   Future<bool> hasMicrophonePermission();
@@ -48,10 +52,21 @@ class PronunciationAudioService implements PronunciationAudioController {
     // Limpia el estado compartido cuando el audio llega al final.
     _completionSubscription = _audioPlayer.onPlayerComplete.listen((_) {
       final completedPlaybackId = _activePlaybackId;
-      if (completedPlaybackId != null && !_playbackCompletedController.isClosed) {
+      if (completedPlaybackId != null &&
+          !_playbackCompletedController.isClosed) {
         _playbackCompletedController.add(completedPlaybackId);
       }
       _setActivePlayback(null);
+    });
+    _positionSubscription = _audioPlayer.onPositionChanged.listen((position) {
+      if (!_playbackPositionController.isClosed) {
+        _playbackPositionController.add(position);
+      }
+    });
+    _durationSubscription = _audioPlayer.onDurationChanged.listen((duration) {
+      if (!_playbackDurationController.isClosed) {
+        _playbackDurationController.add(duration);
+      }
     });
   }
 
@@ -67,9 +82,17 @@ class PronunciationAudioService implements PronunciationAudioController {
   final StreamController<String> _playbackCompletedController =
       StreamController<String>.broadcast();
 
+  final StreamController<Duration> _playbackPositionController =
+      StreamController<Duration>.broadcast();
+
+  final StreamController<Duration> _playbackDurationController =
+      StreamController<Duration>.broadcast();
+
   final Set<String> _temporaryRecordingPaths = {};
 
   late final StreamSubscription<void> _completionSubscription;
+  late final StreamSubscription<Duration> _positionSubscription;
+  late final StreamSubscription<Duration> _durationSubscription;
 
   /// Returns the private temporary directory used by this lesson.
   /// Devuelve el directorio temporal privado utilizado por esta lección.
@@ -138,6 +161,12 @@ class PronunciationAudioService implements PronunciationAudioController {
 
   @override
   Stream<String> get onPlaybackCompleted => _playbackCompletedController.stream;
+
+  @override
+  Stream<Duration> get onPlaybackPosition => _playbackPositionController.stream;
+
+  @override
+  Stream<Duration> get onPlaybackDuration => _playbackDurationController.stream;
 
   /// Notifies all controls when the active recording changes.
   /// Notifica a todos los controles cuando cambia la grabación activa.
@@ -350,10 +379,14 @@ class PronunciationAudioService implements PronunciationAudioController {
     _recordingDirectory = null;
 
     await _completionSubscription.cancel();
+    await _positionSubscription.cancel();
+    await _durationSubscription.cancel();
     await _audioRecorder.dispose();
     await _audioPlayer.dispose();
     await _playbackIdController.close();
     await _recordingIdController.close();
     await _playbackCompletedController.close();
+    await _playbackPositionController.close();
+    await _playbackDurationController.close();
   }
 }

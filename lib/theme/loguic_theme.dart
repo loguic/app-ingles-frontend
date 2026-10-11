@@ -44,6 +44,14 @@ abstract final class LoguicTheme {
           borderRadius: BorderRadius.all(Radius.circular(cardRadius)),
         ),
       ),
+      filledButtonTheme: FilledButtonThemeData(
+        style: FilledButton.styleFrom(
+          textStyle: const TextStyle(fontWeight: FontWeight.w800),
+          shape: const RoundedRectangleBorder(
+            borderRadius: BorderRadius.all(Radius.circular(18)),
+          ),
+        ),
+      ),
       navigationBarTheme: NavigationBarThemeData(
         backgroundColor: Colors.white,
         indicatorColor: const Color(0xFFE8E5FF),
@@ -69,6 +77,62 @@ abstract final class LoguicTheme {
         ),
         unselectedIconTheme: IconThemeData(color: Color(0xFFB9C4DC)),
         unselectedLabelTextStyle: TextStyle(color: Color(0xFFD6DDF0)),
+      ),
+    );
+  }
+
+  static ThemeData get dark {
+    const midnight = Color(0xFF090D1C);
+    const deepSurface = Color(0xFF121A32);
+    const raisedSurface = Color(0xFF1A2542);
+    const electricBlue = Color(0xFF5E8CFF);
+    const electricViolet = Color(0xFF9A7CFF);
+    final scheme =
+        ColorScheme.fromSeed(
+          seedColor: electricBlue,
+          brightness: Brightness.dark,
+          surface: deepSurface,
+        ).copyWith(
+          primary: electricBlue,
+          onPrimary: midnight,
+          secondary: electricViolet,
+          tertiary: const Color(0xFF6BE5B2),
+          surfaceContainerLowest: midnight,
+          surfaceContainerLow: deepSurface,
+          surfaceContainer: raisedSurface,
+          outlineVariant: const Color(0xFF303E62),
+        );
+    return ThemeData(
+      useMaterial3: true,
+      colorScheme: scheme,
+      scaffoldBackgroundColor: midnight,
+      textTheme: Typography.material2021().white.apply(
+        bodyColor: const Color(0xFFF1F5FF),
+        displayColor: Colors.white,
+      ),
+      appBarTheme: const AppBarTheme(
+        backgroundColor: Colors.transparent,
+        foregroundColor: Colors.white,
+        elevation: 0,
+        surfaceTintColor: Colors.transparent,
+      ),
+      cardTheme: const CardThemeData(
+        elevation: 0,
+        color: deepSurface,
+        margin: EdgeInsets.zero,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.all(Radius.circular(cardRadius)),
+        ),
+      ),
+      filledButtonTheme: FilledButtonThemeData(
+        style: FilledButton.styleFrom(
+          backgroundColor: electricBlue,
+          foregroundColor: midnight,
+          shape: const RoundedRectangleBorder(
+            borderRadius: BorderRadius.all(Radius.circular(18)),
+          ),
+          textStyle: const TextStyle(fontWeight: FontWeight.w800),
+        ),
       ),
     );
   }

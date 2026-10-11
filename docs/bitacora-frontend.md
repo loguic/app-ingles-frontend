@@ -2777,3 +2777,59 @@ focal PASS y `git diff --check` PASS.
 Tras el cierre frontend, volver a la autoridad canónica LOGUIC English y
 acotar por separado el incremento de transferencia cercana. Esta entrada no
 autoriza automáticamente transferencia, revisión ni retención.
+
+## A1 V4 REAL VERTICAL SLICE — LOCAL ACTIVE
+
+### Estado
+
+**LOCAL ACTIVE / NOT CLOSED / NOT PUBLISHED / NOT SYNCED**.
+
+Desde el cierre `0a3d8d701a4b85668af7800d13584b678312fc20` se extendió
+localmente la demo A1 v4 desde lower-support hasta un vertical slice real:
+
+- transferencia cercana;
+- grabación real;
+- Moonshine STT local;
+- integración con spoken-turn evaluation backend;
+- feedback semántico real mediante Ollama/Qwen local;
+- reducción adaptativa de apoyo;
+- nueva situación cercana;
+- resumen final;
+- reproducción del audio del alumno.
+
+La ejecución humana end-to-end fue validada. El flujo de tres turnos —agua
+propia, agua con menor apoyo y transferencia cercana a comida— satisface el
+alcance de producto y pedagógico aprobado; no requiere un cuarto turno.
+
+### Premium UX local
+
+Se añadió:
+- Dark default / Light opcional persistente;
+- selector Light/Dark visible;
+- composición premium de tres zonas;
+- progress rail;
+- scene framing corregido;
+- feedback learner-facing;
+- resumen final premium;
+- `PREMIUM VOICE INTERACTION`.
+
+La implementación técnica del nuevo control de voz está completada y sus tests
+focales/analyze reportaron PASS en la tarea Codex correspondiente. Human
+playback review: grabación del alumno audible = **PASS**; reproducción vuelve a
+idle = **PASS**. El pulido de waveform queda deliberadamente diferido y no
+bloquea este cierre; Figma permanece fuera del flujo activo.
+
+### Fronteras
+
+Sin loader, activación A1, runtime pointer, B181, mastery, progreso ni
+completion curricular.
+
+El único bloqueador técnico pendiente es demostrar explícitamente que el
+runtime local spoken-turn existente usa Qwen 3 8B y devuelve su provenance.
+`Development Supervisor v1` permanece separado: **LOCAL / NOT CLOSED / NOT
+PUBLISHED** y no forma parte del cierre de producto A1.
+
+NEXT = validar de forma acotada el runtime/provenance Qwen 3 8B existente y,
+si pasa, ejecutar el postflight de cierre; sin cuarto turno `help`, trabajo de
+`scene-help`, waveform/Figma, loader, runtime activation, B181, mastery,
+progreso o completion.

@@ -13,6 +13,6 @@ void main() {
     expect(find.text('Estación de tren'), findsOneWidget);
     await tester.tap(find.text('Estación de tren'));
     await tester.pumpAndSettle();
-    expect(find.text('Station speaking practice'), findsOneWidget);
+    expect(find.text('Práctica oral en la estación'), findsOneWidget);
   });
 }

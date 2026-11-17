@@ -95,14 +95,55 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
+      expect(
+        tester.getSize(find.byKey(const Key('station-play-reference'))).width,
+        lessThanOrEqualTo(360),
+      );
       await tester.scrollUntilVisible(
         find.byKey(const Key('station-record')),
         200,
       );
       expect(tester.takeException(), isNull);
       expect(find.byKey(const Key('station-record')), findsOneWidget);
+      expect(
+        tester.getSize(find.byKey(const Key('station-record'))).width,
+        lessThanOrEqualTo(360),
+      );
     });
   }
+
+  testWidgets(
+    'the station requests audio before revealing the specific prompt',
+    (tester) async {
+      tester.view.physicalSize = const Size(1280, 1000);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      final audio = _AudioFake();
+      addTearDown(audio.dispose);
+      await tester.pumpWidget(
+        MaterialApp(
+          home: StationJourneyScreen(
+            audioController: audio,
+            journeyStore: _MemoryJourneyStore(),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Ask for the toilet in your own words.'), findsNothing);
+      expect(
+        find.byKey(const Key('station-comprehension-instruction')),
+        findsOneWidget,
+      );
+      await tester.tap(find.byKey(const Key('station-play-reference')));
+      await tester.pumpAndSettle();
+      expect(
+        find.text('Ask for the toilet in your own words.'),
+        findsOneWidget,
+      );
+    },
+  );
 
   testWidgets(
     'records, orients, retries, saves and opens the data-defined exit situation',

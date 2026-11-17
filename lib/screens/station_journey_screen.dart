@@ -35,6 +35,7 @@ class _StationJourneyScreenState extends State<StationJourneyScreen> {
   String? _initialRecording;
   String? _retryRecording;
   bool _loading = true;
+  bool _referenceRequested = false;
 
   StationSituation get _situation => stationSituations[_situationIndex];
 
@@ -86,10 +87,13 @@ class _StationJourneyScreenState extends State<StationJourneyScreen> {
     );
   }
 
-  Future<void> _playReference() => _audio.playReference(
-    _situation.referenceAudioAsset,
-    playbackId: 'station-reference-${_situation.id}',
-  );
+  Future<void> _playReference() async {
+    await _audio.playReference(
+      _situation.referenceAudioAsset,
+      playbackId: 'station-reference-${_situation.id}',
+    );
+    if (mounted) setState(() => _referenceRequested = true);
+  }
 
   Future<void> _record({required bool retry}) async {
     final allowed = await _audio.hasMicrophonePermission();
@@ -126,6 +130,7 @@ class _StationJourneyScreenState extends State<StationJourneyScreen> {
       _phase = StationJourneyPhase.listen;
       _initialRecording = null;
       _retryRecording = null;
+      _referenceRequested = false;
     });
     await _save();
   }
@@ -135,6 +140,11 @@ class _StationJourneyScreenState extends State<StationJourneyScreen> {
     if (_ownsAudio) unawaited(_audio.dispose());
     super.dispose();
   }
+
+  Widget _responsiveAction(Widget action) => Align(
+    alignment: Alignment.centerLeft,
+    child: SizedBox(width: 360, child: action),
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -147,17 +157,17 @@ class _StationJourneyScreenState extends State<StationJourneyScreen> {
     final recordingActive = _audio.activeRecordingId != null;
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Station speaking practice'),
+        title: const Text('Práctica oral en la estación'),
         actions: [
           TextButton(
             key: const Key('a1-theme-light'),
             onPressed: () => widget.onThemeChanged?.call(ThemeMode.light),
-            child: const Text('Light'),
+            child: const Text('Claro'),
           ),
           TextButton(
             key: const Key('a1-theme-dark'),
             onPressed: () => widget.onThemeChanged?.call(ThemeMode.dark),
-            child: const Text('Dark'),
+            child: const Text('Oscuro'),
           ),
         ],
       ),
@@ -169,33 +179,35 @@ class _StationJourneyScreenState extends State<StationJourneyScreen> {
             children: [
               Text('Situación', style: Theme.of(context).textTheme.titleMedium),
               const SizedBox(height: 8),
+              Text(
+                _situation.title,
+                style: Theme.of(context).textTheme.headlineSmall,
+              ),
+              Text(_situation.scenario),
+              const SizedBox(height: 12),
               SizedBox(
-                height: MediaQuery.sizeOf(context).width < 600 ? 160 : 220,
+                height: MediaQuery.sizeOf(context).width < 600 ? 130 : 160,
                 child: Image.asset(
                   _situation.imageAsset,
                   fit: BoxFit.contain,
                   semanticLabel: 'Escena de una estación de tren',
                 ),
               ),
-              const SizedBox(height: 16),
-              Text(
-                _situation.title,
-                style: Theme.of(context).textTheme.headlineSmall,
-              ),
-              Text(_situation.scenario),
-              const SizedBox(height: 16),
+              const SizedBox(height: 12),
               Text('Escuchar', style: Theme.of(context).textTheme.titleMedium),
               const Text(
                 'Audio provisional para demostración interna',
                 key: Key('station-provisional-audio-label'),
               ),
-              FilledButton.icon(
-                key: const Key('station-play-reference'),
-                onPressed: _playReference,
-                icon: const Icon(Icons.volume_up),
-                label: const Text('Escuchar audio provisional'),
+              _responsiveAction(
+                FilledButton.icon(
+                  key: const Key('station-play-reference'),
+                  onPressed: _playReference,
+                  icon: const Icon(Icons.volume_up),
+                  label: const Text('Escuchar audio provisional'),
+                ),
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 12),
               if (_phase == StationJourneyPhase.orientation) ...[
                 const Text(
                   'Orientación para el reintento',
@@ -242,45 +254,60 @@ class _StationJourneyScreenState extends State<StationJourneyScreen> {
                   'Comprender',
                   style: Theme.of(context).textTheme.titleMedium,
                 ),
-                Text(
-                  _situation.initialPrompt,
-                  key: const Key('station-prompt'),
+                const Text(
+                  'Escucha la situación e identifica qué lugar necesita encontrar la persona.',
+                  key: Key('station-comprehension-instruction'),
                 ),
                 const SizedBox(height: 12),
                 Text('Hablar', style: Theme.of(context).textTheme.titleMedium),
+                if (_referenceRequested || _phase == StationJourneyPhase.retry)
+                  Text(
+                    _situation.initialPrompt,
+                    key: const Key('station-prompt'),
+                  )
+                else
+                  const Text(
+                    'Primero escucha el audio; después practica cómo pedir ayuda.',
+                    key: Key('station-prompt-hidden'),
+                  ),
                 if (recording == null)
-                  FilledButton.icon(
-                    style: recordingActive
-                        ? FilledButton.styleFrom(
-                            backgroundColor: Theme.of(
-                              context,
-                            ).colorScheme.error,
-                            foregroundColor: Theme.of(
-                              context,
-                            ).colorScheme.onError,
-                          )
-                        : null,
-                    key: const Key('station-record'),
-                    onPressed: recordingActive
-                        ? () =>
-                              _stop(retry: _phase == StationJourneyPhase.retry)
-                        : () => _record(
-                            retry: _phase == StationJourneyPhase.retry,
-                          ),
-                    icon: Icon(recordingActive ? Icons.stop : Icons.mic),
-                    label: Text(
-                      recordingActive ? 'Detener grabación' : 'Grabar mi voz',
+                  _responsiveAction(
+                    FilledButton.icon(
+                      style: recordingActive
+                          ? FilledButton.styleFrom(
+                              backgroundColor: Theme.of(
+                                context,
+                              ).colorScheme.error,
+                              foregroundColor: Theme.of(
+                                context,
+                              ).colorScheme.onError,
+                            )
+                          : null,
+                      key: const Key('station-record'),
+                      onPressed: recordingActive
+                          ? () => _stop(
+                              retry: _phase == StationJourneyPhase.retry,
+                            )
+                          : () => _record(
+                              retry: _phase == StationJourneyPhase.retry,
+                            ),
+                      icon: Icon(recordingActive ? Icons.stop : Icons.mic),
+                      label: Text(
+                        recordingActive ? 'Detener grabación' : 'Grabar mi voz',
+                      ),
                     ),
                   )
                 else
-                  OutlinedButton.icon(
-                    key: const Key('station-play-recording'),
-                    onPressed: () => _audio.playRecording(
-                      recording,
-                      playbackId: 'station-recording-${_situation.id}',
+                  _responsiveAction(
+                    OutlinedButton.icon(
+                      key: const Key('station-play-recording'),
+                      onPressed: () => _audio.playRecording(
+                        recording,
+                        playbackId: 'station-recording-${_situation.id}',
+                      ),
+                      icon: const Icon(Icons.play_arrow),
+                      label: const Text('Reproducir mi voz'),
                     ),
-                    icon: const Icon(Icons.play_arrow),
-                    label: const Text('Reproducir mi voz'),
                   ),
               ],
             ],

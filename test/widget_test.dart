@@ -15,7 +15,7 @@ void main() {
     expect(find.text('Bienvenido a LOGUIC English'), findsOneWidget);
     await tester.tap(find.text('Estación de tren'));
     await tester.pumpAndSettle();
-    expect(find.text('Station speaking practice'), findsOneWidget);
+    expect(find.text('Práctica oral en la estación'), findsOneWidget);
     expect(
       find.text('You are at a UK train station and need to find a place.'),
       findsOneWidget,
@@ -23,8 +23,8 @@ void main() {
     expect(find.text('Speech model not configured'), findsNothing);
     expect(find.byKey(const Key('a1-theme-light')), findsOneWidget);
     expect(find.byKey(const Key('a1-theme-dark')), findsOneWidget);
-    expect(find.text('Light'), findsOneWidget);
-    expect(find.text('Dark'), findsOneWidget);
+    expect(find.text('Claro'), findsOneWidget);
+    expect(find.text('Oscuro'), findsOneWidget);
   });
 
   testWidgets('restores and persists the learner theme choice', (tester) async {

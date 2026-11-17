@@ -114,7 +114,7 @@ class VisualLevelMap extends StatelessWidget {
                             Text(
                               isDemo
                                   ? 'Demostración disponible'
-                                  : 'Horizonte del producto',
+                                  : 'En preparación',
                               style: TextStyle(
                                 color: LoguicTheme.navy.withValues(alpha: 0.72),
                                 fontWeight: FontWeight.w600,

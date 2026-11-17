@@ -184,8 +184,9 @@ void main() {
     expect(ids.every((id) => id.startsWith('demo-visual-')), isTrue);
     expect(ids.any((id) => id.contains('a1-u1-l1')), isFalse);
     expect(
-      visualDemoContent.conversation.turns.first.pronunciations
-          .map((pronunciation) => pronunciation.audioAsset),
+      visualDemoContent.conversation.turns.first.pronunciations.map(
+        (pronunciation) => pronunciation.audioAsset,
+      ),
       everyElement(startsWith('audio/')),
     );
   });
@@ -205,7 +206,6 @@ void main() {
     );
 
     expect(find.text('Explorar demostración'), findsOneWidget);
-    expect(find.text(visualDemoNotice), findsOneWidget);
 
     await tester.tap(find.text('Explorar demostración'));
     await tester.pump();
@@ -215,7 +215,7 @@ void main() {
       expect(find.text(level), findsOneWidget);
     }
     expect(find.text('Demostración disponible'), findsOneWidget);
-    expect(find.text('Horizonte del producto'), findsNWidgets(5));
+    expect(find.text('En preparación'), findsNWidgets(5));
     expect(find.textContaining('%'), findsNothing);
     expect(find.textContaining('mastery'), findsNothing);
 
@@ -458,23 +458,28 @@ void main() {
   ) async {
     final audioController = DemoAudioController()..failNextReference = true;
     addTearDown(audioController.dispose);
-    await tester.pumpWidget(MaterialApp(
-      theme: LoguicTheme.light,
-      home: Scaffold(
-        body: LessonConversationCard(
-          conversation: visualDemoContent.conversation,
-          levelId: 'demo-visual-a1',
-          unitId: 'demo-visual-a1-situation',
-          lessonId: visualDemoContent.id,
-          userId: 'demo-visual-local-user',
-          audioService: audioController,
-          demoMode: true,
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: LoguicTheme.light,
+        home: Scaffold(
+          body: LessonConversationCard(
+            conversation: visualDemoContent.conversation,
+            levelId: 'demo-visual-a1',
+            unitId: 'demo-visual-a1-situation',
+            lessonId: visualDemoContent.id,
+            userId: 'demo-visual-local-user',
+            audioService: audioController,
+            demoMode: true,
+          ),
         ),
       ),
-    ));
+    );
     await tester.tap(find.text('Escuchar al interlocutor'));
     await tester.pump();
-    expect(find.text('No se pudo reproducir al interlocutor. Inténtalo nuevamente.'), findsOneWidget);
+    expect(
+      find.text('No se pudo reproducir al interlocutor. Inténtalo nuevamente.'),
+      findsOneWidget,
+    );
     expect(find.text('Mostrar transcript'), findsNothing);
     expect(find.text('Seguir a mi respuesta'), findsNothing);
 

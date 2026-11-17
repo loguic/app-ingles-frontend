@@ -68,6 +68,8 @@ flutter:
     - assets/audio/
     - assets/a1_v4/audio/
     - assets/a1_v4/visual/
+    - assets/mb1/audio/
+    - assets/mb1/visual/
 
   # To add assets to your application, add an assets section, like this:
   # assets:

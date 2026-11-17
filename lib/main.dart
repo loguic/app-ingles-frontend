@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-
-import 'screens/a1_v4_visible_demo_screen.dart';
+import 'screens/main_shell_screen.dart';
 import 'theme/loguic_theme.dart';
 
 void main() {
@@ -50,9 +49,7 @@ class _AppInglesState extends State<AppIngles> {
       darkTheme: LoguicTheme.dark,
       themeMode: _themeMode,
       themeAnimationDuration: Duration.zero,
-      // A1 currently has one complete learner journey. Enter it directly
-      // instead of routing learners through the retired demo map.
-      home: A1V4VisibleDemoScreen(
+      home: MainShellScreen(
         isDarkTheme: _themeMode == ThemeMode.dark,
         onThemeChanged: _setTheme,
       ),

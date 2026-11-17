@@ -7,9 +7,7 @@ import 'info_card.dart';
 /// Shows a basic summary of the user's saved progress.
 /// Muestra un resumen básico del progreso guardado del usuario.
 class ProgressSummaryCard extends StatelessWidget {
-  const ProgressSummaryCard({
-    super.key,
-  });
+  const ProgressSummaryCard({super.key});
 
   static final ApiService _apiService = ApiService();
 
@@ -27,8 +25,9 @@ class ProgressSummaryCard extends StatelessWidget {
 
         final progressRecords = snapshot.data ?? [];
         final totalAnswered = progressRecords.length;
-        final correctAnswers =
-            progressRecords.where((record) => record.correct).length;
+        final correctAnswers = progressRecords
+            .where((record) => record.correct)
+            .length;
 
         return InfoCard(
           title: 'Progreso',

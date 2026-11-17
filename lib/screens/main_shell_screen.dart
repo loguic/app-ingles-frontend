@@ -8,6 +8,7 @@ import '../widgets/unit_list_card.dart';
 import 'home_screen.dart';
 import 'lesson_detail_screen.dart';
 import 'visual_demo_screens.dart';
+import 'station_journey_screen.dart';
 
 typedef LearnDestinationBuilder =
     Widget Function(BuildContext context, ValueChanged<String> openLesson);
@@ -19,12 +20,16 @@ class MainShellScreen extends StatefulWidget {
     this.learnDestinationBuilder,
     this.lessonScreenBuilder,
     this.demoAudioController,
+    this.isDarkTheme = false,
+    this.onThemeChanged,
     super.key,
   });
 
   final LearnDestinationBuilder? learnDestinationBuilder;
   final LessonScreenBuilder? lessonScreenBuilder;
   final PronunciationAudioController? demoAudioController;
+  final bool isDarkTheme;
+  final ValueChanged<ThemeMode>? onThemeChanged;
 
   @override
   State<MainShellScreen> createState() => _MainShellScreenState();
@@ -95,6 +100,16 @@ class _MainShellScreenState extends State<MainShellScreen> {
       HomeScreen(
         refreshCounter: _homeRefreshCounter,
         onExploreDemo: _showVisualMap,
+        onOpenLearn: () => setState(() => _selectedDestination = 2),
+        onOpenStation: () => Navigator.of(context).push(
+          MaterialPageRoute<void>(
+            builder: (_) => StationJourneyScreen(
+              audioController: widget.demoAudioController,
+              isDarkTheme: widget.isDarkTheme,
+              onThemeChanged: widget.onThemeChanged,
+            ),
+          ),
+        ),
       ),
       _ShellDestination(
         title: 'Niveles',
@@ -116,6 +131,8 @@ class _MainShellScreenState extends State<MainShellScreen> {
                   selectedUnitId: _selectedUnitId,
                   onUnitSelected: _selectUnit,
                 ),
+                const SizedBox(height: LoguicTheme.contentSpacing),
+                const _LearningAreas(),
                 if (_selectedUnitId != null) ...[
                   const SizedBox(height: LoguicTheme.contentSpacing),
                   LessonListCard(
@@ -131,10 +148,34 @@ class _MainShellScreenState extends State<MainShellScreen> {
         title: 'Repaso',
         message: 'El repaso adaptativo todavía no está disponible.',
       ),
-      const _UnavailableDestination(
-        title: 'Perfil',
-        message:
-            'El perfil y el progreso familiar todavía no están disponibles.',
+      _ShellDestination(
+        title: 'Perfil y ajustes',
+        description: 'Personaliza la apariencia de la aplicación.',
+        child: Column(
+          children: [
+            InfoCard(
+              title: 'Apariencia',
+              child: Wrap(
+                spacing: 12,
+                children: [
+                  TextButton(
+                    key: const Key('a1-theme-light'),
+                    onPressed: () =>
+                        widget.onThemeChanged?.call(ThemeMode.light),
+                    child: const Text('Light'),
+                  ),
+                  TextButton(
+                    key: const Key('a1-theme-dark'),
+                    onPressed: () =>
+                        widget.onThemeChanged?.call(ThemeMode.dark),
+                    child: const Text('Dark'),
+                  ),
+                ],
+              ),
+            ),
+            const _PendingCard(title: 'Perfil y logros'),
+          ],
+        ),
       ),
     ];
   }
@@ -358,7 +399,7 @@ class _UnavailableDestination extends StatelessWidget {
     return _ShellDestination(
       title: title,
       description: message,
-      child: InfoCard(title: 'Próximamente', child: Text(message)),
+      child: InfoCard(title: 'En preparación', child: Text(message)),
     );
   }
 }
@@ -378,3 +419,65 @@ const _navigationDestinations = [
   _NavigationItem('Repaso', Icons.replay_outlined, Icons.replay),
   _NavigationItem('Perfil', Icons.person_outline, Icons.person),
 ];
+
+class _LearningAreas extends StatelessWidget {
+  const _LearningAreas();
+
+  @override
+  Widget build(BuildContext context) {
+    const areas = [
+      'Portada de lección',
+      'Listening',
+      'Speaking y conversación',
+      'Pronunciación',
+      'Reading',
+      'Vocabulario',
+      'Gramática',
+      'Progreso y logros',
+    ];
+    return InfoCard(
+      title: 'Áreas de aprendizaje',
+      child: Wrap(
+        spacing: 8,
+        runSpacing: 8,
+        children: areas
+            .map(
+              (area) => OutlinedButton(
+                onPressed: () => Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => Scaffold(
+                      appBar: AppBar(title: Text(area)),
+                      body: _ShellDestination(
+                        title: area,
+                        description: 'Explora esta sección de LOGUIC English.',
+                        child: _PendingCard(title: area),
+                      ),
+                    ),
+                  ),
+                ),
+                child: Text(area),
+              ),
+            )
+            .toList(),
+      ),
+    );
+  }
+}
+
+class _PendingCard extends StatelessWidget {
+  const _PendingCard({required this.title});
+  final String title;
+
+  @override
+  Widget build(BuildContext context) => InfoCard(
+    title: title,
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text('En preparación'),
+        const SizedBox(height: 8),
+        FilledButton(onPressed: null, child: const Text('En preparación')),
+      ],
+    ),
+  );
+}

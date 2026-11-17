@@ -5,16 +5,22 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:app_ingles/main.dart';
 
 void main() {
-  testWidgets('app opens the A1 speaking journey directly', (
+  testWidgets('app opens the station activity from the shell', (
     WidgetTester tester,
   ) async {
     SharedPreferences.setMockInitialValues({});
     await tester.pumpWidget(const AppIngles());
+    await tester.pumpAndSettle();
 
-    expect(find.text('LOGUIC English'), findsOneWidget);
-    expect(find.text('You are thirsty. Ask for water.'), findsOneWidget);
+    expect(find.text('Bienvenido a LOGUIC English'), findsOneWidget);
+    await tester.tap(find.text('Estación de tren'));
+    await tester.pumpAndSettle();
+    expect(find.text('Station speaking practice'), findsOneWidget);
+    expect(
+      find.text('You are at a UK train station and need to find a place.'),
+      findsOneWidget,
+    );
     expect(find.text('Speech model not configured'), findsNothing);
-    expect(find.byKey(const Key('a1-theme-toggle')), findsOneWidget);
     expect(find.byKey(const Key('a1-theme-light')), findsOneWidget);
     expect(find.byKey(const Key('a1-theme-dark')), findsOneWidget);
     expect(find.text('Light'), findsOneWidget);
@@ -30,6 +36,8 @@ void main() {
       tester.widget<MaterialApp>(find.byType(MaterialApp)).themeMode,
       ThemeMode.light,
     );
+    await tester.tap(find.text('Perfil'));
+    await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('a1-theme-dark')));
     await tester.pumpAndSettle();
     expect(

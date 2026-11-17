@@ -35,7 +35,13 @@ void main() {
     expect(find.text('Escucha. Habla. Lee. Avanza.'), findsNWidgets(2));
     expect(find.byType(NavigationBar), findsOneWidget);
     for (final label in ['Inicio', 'Niveles', 'Aprender', 'Repaso', 'Perfil']) {
-      expect(find.text(label), findsOneWidget);
+      expect(
+        find.descendant(
+          of: find.byType(NavigationBar),
+          matching: find.text(label),
+        ),
+        findsOneWidget,
+      );
     }
     expect(find.text('Bienvenido a LOGUIC English'), findsOneWidget);
     expect(find.text('Estado del backend'), findsNothing);
@@ -63,7 +69,12 @@ void main() {
     _setViewport(tester, const Size(600, 900));
 
     await tester.pumpWidget(_testApp());
-    await tester.tap(find.text('Repaso'));
+    await tester.tap(
+      find.descendant(
+        of: find.byType(NavigationBar),
+        matching: find.text('Repaso'),
+      ),
+    );
     await tester.pump();
 
     expect(
@@ -74,12 +85,9 @@ void main() {
     await tester.tap(find.text('Perfil'));
     await tester.pump();
 
-    expect(
-      find.text(
-        'El perfil y el progreso familiar todavía no están disponibles.',
-      ),
-      findsNWidgets(2),
-    );
+    expect(find.text('Perfil y ajustes'), findsOneWidget);
+    expect(find.text('Perfil y logros'), findsOneWidget);
+    expect(find.text('En preparación'), findsWidgets);
     expect(find.textContaining('demo-user'), findsNothing);
   });
 

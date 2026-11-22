@@ -40,59 +40,72 @@ abstract interface class PronunciationAudioController {
   Future<void> dispose();
 }
 
+/// One playback owns one player and its completion subscriptions.
+/// Una reproducción posee su reproductor y suscripciones.
+class _PlaybackSession {
+  _PlaybackSession(this.token, this.id, this.player);
+
+  final int token;
+  final String id;
+  final AudioPlayer player;
+  // Completes only after any late start has been stopped.
+  // Se completa solo cuando un arranque tardío ya no puede sonar.
+  final Completer<void> quiesced = Completer<void>();
+  final Completer<void> initialStopSettled = Completer<void>();
+  StreamSubscription<void>? completionSubscription;
+  StreamSubscription<Duration>? positionSubscription;
+  StreamSubscription<Duration>? durationSubscription;
+  Future<void>? releaseFuture;
+  bool valid = true;
+  bool completionEmitted = false;
+}
+
 /// Coordinates reference playback and temporary learner recordings.
 /// Coordina la reproducción de referencia y las grabaciones temporales.
 class PronunciationAudioService implements PronunciationAudioController {
   PronunciationAudioService({
-    AudioPlayer? audioPlayer,
+    AudioPlayer Function()? audioPlayerFactory,
     AudioRecorder? audioRecorder,
-  }) : _audioPlayer = audioPlayer ?? AudioPlayer(),
-       _audioRecorder = audioRecorder ?? AudioRecorder() {
-    // Clears the shared playback state when the audio reaches its end.
-    // Limpia el estado compartido cuando el audio llega al final.
-    _completionSubscription = _audioPlayer.onPlayerComplete.listen((_) {
-      final completedPlaybackId = _activePlaybackId;
-      if (completedPlaybackId != null &&
-          !_playbackCompletedController.isClosed) {
-        _playbackCompletedController.add(completedPlaybackId);
-      }
-      _setActivePlayback(null);
-    });
-    _positionSubscription = _audioPlayer.onPositionChanged.listen((position) {
-      if (!_playbackPositionController.isClosed) {
-        _playbackPositionController.add(position);
-      }
-    });
-    _durationSubscription = _audioPlayer.onDurationChanged.listen((duration) {
-      if (!_playbackDurationController.isClosed) {
-        _playbackDurationController.add(duration);
-      }
-    });
-  }
+  }) : _audioPlayerFactory = audioPlayerFactory ?? AudioPlayer.new,
+       _audioRecorder = audioRecorder ?? AudioRecorder();
 
-  final AudioPlayer _audioPlayer;
+  // A factory, rather than a shared AudioPlayer, allows independent events.
+  // La fábrica, no una instancia compartida, aísla los eventos.
+  final AudioPlayer Function() _audioPlayerFactory;
   final AudioRecorder _audioRecorder;
 
   final StreamController<String?> _playbackIdController =
       StreamController<String?>.broadcast();
-
   final StreamController<String?> _recordingIdController =
       StreamController<String?>.broadcast();
-
   final StreamController<String> _playbackCompletedController =
       StreamController<String>.broadcast();
-
   final StreamController<Duration> _playbackPositionController =
       StreamController<Duration>.broadcast();
-
   final StreamController<Duration> _playbackDurationController =
       StreamController<Duration>.broadcast();
 
   final Set<String> _temporaryRecordingPaths = {};
+  final Set<_PlaybackSession> _sessions = {};
+  // Keep only detached completion fences for starts not yet settled.
+  // Conserva solo barreras sin referencias al reproductor antiguo.
+  final Set<Completer<void>> _pendingStartFences = {};
+  // Once hardware shutdown cannot be verified, do not start another player.
+  // Si no puede garantizarse la detención física, bloquear nuevos audios.
+  bool _unsafeHardwareRelease = false;
+  _PlaybackSession? _activeSession;
+  bool _disposed = false;
+  int _nextSessionToken = 0;
+  int _nextRequestToken = 0;
+  // Never overlap with an unresolved former start: fail closed instead.
+  // Nunca solapar un arranque anterior incierto: bloquear con error.
+  static const _replacementTimeout = Duration(seconds: 5);
+  Future<void>? _disposeFuture;
 
-  late final StreamSubscription<void> _completionSubscription;
-  late final StreamSubscription<Duration> _positionSubscription;
-  late final StreamSubscription<Duration> _durationSubscription;
+  // Read-only, test-focused diagnostics; never expose player instances.
+  // Diagnóstico de pruebas sin exponer instancias de reproducción.
+  int get debugTrackedPlaybackSessionCount => _sessions.length;
+  int get debugPendingPlaybackFenceCount => _pendingStartFences.length;
 
   /// Returns the private temporary directory used by this lesson.
   /// Devuelve el directorio temporal privado utilizado por esta lección.
@@ -154,70 +167,209 @@ class PronunciationAudioService implements PronunciationAudioController {
   @override
   String? get activeRecordingId => _activeRecordingId;
 
-  /// Notifies all controls when the active playback changes.
-  /// Notifica a todos los controles cuando cambia la reproducción activa.
   @override
   Stream<String?> get onPlaybackChanged => _playbackIdController.stream;
-
   @override
   Stream<String> get onPlaybackCompleted => _playbackCompletedController.stream;
-
   @override
   Stream<Duration> get onPlaybackPosition => _playbackPositionController.stream;
-
   @override
   Stream<Duration> get onPlaybackDuration => _playbackDurationController.stream;
-
-  /// Notifies all controls when the active recording changes.
-  /// Notifica a todos los controles cuando cambia la grabación activa.
   @override
   Stream<String?> get onRecordingChanged => _recordingIdController.stream;
 
-  /// Checks and requests microphone permission when required.
-  /// Comprueba y solicita permiso de micrófono cuando sea necesario.
   @override
-  Future<bool> hasMicrophonePermission() {
-    return _audioRecorder.hasPermission();
+  Future<bool> hasMicrophonePermission() => _audioRecorder.hasPermission();
+
+  bool _isActive(_PlaybackSession session) =>
+      !_disposed &&
+      session.valid &&
+      identical(_activeSession, session) &&
+      session.token == _activeSession?.token;
+
+  void _bindSession(_PlaybackSession session) {
+    session.completionSubscription = session.player.onPlayerComplete.listen((
+      _,
+    ) {
+      if (!_isActive(session) || session.completionEmitted) return;
+      session.completionEmitted = true;
+      // Publish the completing session's own ID before its deactivation.
+      // Publica el ID de la sesión emisora antes de desactivarla.
+      if (!_playbackCompletedController.isClosed) {
+        _playbackCompletedController.add(session.id);
+      }
+      _retire(session);
+    });
+    session.positionSubscription = session.player.onPositionChanged.listen((v) {
+      if (_isActive(session) && !_playbackPositionController.isClosed) {
+        _playbackPositionController.add(v);
+      }
+    });
+    session.durationSubscription = session.player.onDurationChanged.listen((v) {
+      if (_isActive(session) && !_playbackDurationController.isClosed) {
+        _playbackDurationController.add(v);
+      }
+    });
   }
 
-  /// Plays one pronunciation reference stored as a Flutter asset.
-  /// Reproduce una pronunciación de referencia almacenada como recurso.
-  @override
-  Future<void> playReference(String audioAsset, {String? playbackId}) async {
-    await stopPlayback();
-
-    _setActivePlayback(playbackId ?? 'reference:$audioAsset');
-
-    try {
-      await _audioPlayer.play(AssetSource(audioAsset));
-    } catch (_) {
+  /// Invalidates synchronously; async stop/disposal cannot restore validity.
+  /// Invalida sin await; stop/dispose nunca restauran la validez.
+  void _retire(_PlaybackSession session) {
+    if (!session.valid) return;
+    session.valid = false;
+    if (identical(_activeSession, session)) {
+      _activeSession = null;
       _setActivePlayback(null);
-      rethrow;
+    }
+    unawaited(_releaseSession(session));
+  }
+
+  Future<void> _releaseSession(_PlaybackSession session) {
+    if (session.releaseFuture != null) return session.releaseFuture!;
+    final future = _finishRelease(session);
+    session.releaseFuture = future;
+    // A completion callback must not create an unhandled async exception.
+    // Una devolución de evento no debe producir excepciones asíncronas sin manejar.
+    unawaited(future.catchError((Object _) {}));
+    return future;
+  }
+
+  Future<void> _finishRelease(_PlaybackSession session) async {
+    var stopped = false;
+    var subscriptionsCancelled = false;
+    var disposed = false;
+    try {
+      try {
+        await session.player.stop();
+        stopped = true;
+      } catch (_) {
+        // A failed stop is not proof of physical silence.
+        // Un stop fallido no demuestra que el audio esté detenido.
+      } finally {
+        if (!session.initialStopSettled.isCompleted) {
+          session.initialStopSettled.complete();
+        }
+      }
+
+      try {
+        await session.completionSubscription?.cancel();
+        await session.positionSubscription?.cancel();
+        await session.durationSubscription?.cancel();
+        subscriptionsCancelled = true;
+      } catch (_) {
+        // Still attempt native disposal, even after cancellation errors.
+        // Liberar igualmente aunque falle cancelar una suscripción.
+      }
+
+      try {
+        await session.player.dispose();
+        disposed = true;
+      } catch (_) {
+        // Fail closed: never assume a failed disposal stopped audio.
+        // Bloquear nuevas reproducciones si falla la liberación.
+      }
+    } finally {
+      if (!stopped || !subscriptionsCancelled || !disposed) {
+        _unsafeHardwareRelease = true;
+      }
+      // The service must not retain a dead session while play() hangs.
+      // The detached start fence still blocks replacements until play settles.
+      // El servicio no retiene la sesión; su barrera impide solapamientos.
+      _sessions.remove(session);
     }
   }
 
-  /// Plays the learner recording stored in the temporary directory.
-  /// Reproduce la grabación del estudiante guardada temporalmente.
-  @override
-  Future<void> playRecording(String path, {String? playbackId}) async {
-    await stopPlayback();
+  Future<void> _play(Source source, String playbackId) async {
+    if (_disposed) throw StateError('El servicio de audio está liberado.');
+    final request = ++_nextRequestToken;
+    final previous = _activeSession;
+    if (previous != null) _retire(previous);
 
-    _setActivePlayback(playbackId ?? 'recording:$path');
+    // Await old native cleanups AND detached start fences, never a player
+    // retained solely because play() remains unresolved.
+    // Esperar limpieza y arranques pendientes sin retener reproductores.
+    final barriers = <Future<void>>[
+      ..._sessions.map(_releaseSession),
+      ..._pendingStartFences.map((fence) => fence.future),
+    ];
+    if (barriers.isNotEmpty) {
+      try {
+        await Future.wait(barriers).timeout(_replacementTimeout);
+      } on TimeoutException {
+        if (_disposed || request != _nextRequestToken) return;
+        throw StateError(
+          'Reproducción bloqueada: el audio anterior no terminó de arrancar.',
+        );
+      }
+    }
+
+    if (_unsafeHardwareRelease) {
+      if (_disposed || request != _nextRequestToken) return;
+      throw StateError(
+        'Reproducción bloqueada: no se confirmó la detención del audio anterior.',
+      );
+    }
+
+    // An obsolete queued request cannot start after a newer one or stop().
+    // Una solicitud en espera no puede reactivarse tras stop() u otra solicitud.
+    if (_disposed || request != _nextRequestToken) return;
+    final session = _PlaybackSession(
+      ++_nextSessionToken,
+      playbackId,
+      _audioPlayerFactory(),
+    );
+    _sessions.add(session);
+    _pendingStartFences.add(session.quiesced);
+    _activeSession = session;
+    _bindSession(session);
+    _setActivePlayback(playbackId);
 
     try {
-      await _audioPlayer.play(DeviceFileSource(path));
+      if (!_isActive(session)) return;
+      await session.player.play(source);
     } catch (_) {
-      _setActivePlayback(null);
+      if (!_isActive(session)) return;
+      _retire(session);
       rethrow;
+    } finally {
+      try {
+        if (!session.valid) {
+          // Guard against late playback from any mock/platform implementation.
+          // Garantía adicional ante reproducciones que arrancan tarde.
+          try {
+            await session.player.stop();
+          } catch (_) {
+            // A late start might still be audible; forbid new playback.
+            // Un arranque tardío podría sonar: bloquear otro audio.
+            _unsafeHardwareRelease = true;
+          }
+          await _releaseSession(session);
+        }
+      } finally {
+        session.quiesced.complete();
+        _pendingStartFences.remove(session.quiesced);
+      }
     }
   }
 
-  /// Stops any active reference or learner playback.
-  /// Detiene cualquier reproducción de referencia o del estudiante.
   @override
-  Future<void> stopPlayback() async {
-    await _audioPlayer.stop();
-    _setActivePlayback(null);
+  Future<void> playReference(String audioAsset, {String? playbackId}) =>
+      _play(AssetSource(audioAsset), playbackId ?? 'reference:$audioAsset');
+
+  @override
+  Future<void> playRecording(String path, {String? playbackId}) =>
+      _play(DeviceFileSource(path), playbackId ?? 'recording:$path');
+
+  @override
+  Future<void> stopPlayback() {
+    // Also cancels a replacement waiting behind an older pending play().
+    ++_nextRequestToken;
+    final session = _activeSession;
+    if (session == null) return Future<void>.value();
+    _retire(session);
+    // Do not wait for an uncompleted play(): it was invalidated already.
+    // No bloquearse por play() pendiente: ya quedó invalidado.
+    return session.initialStopSettled.future;
   }
 
   /// Starts a mono WAV recording for one lesson example.
@@ -359,34 +511,48 @@ class PronunciationAudioService implements PronunciationAudioController {
   /// Releases audio resources and removes all temporary learner audio.
   /// Libera los recursos y elimina todo el audio temporal del estudiante.
   @override
-  Future<void> dispose() async {
-    await stopPlayback();
-
-    if (await _audioRecorder.isRecording()) {
-      await cancelRecording();
+  Future<void> dispose() {
+    if (_disposeFuture != null) return _disposeFuture!;
+    _disposed = true;
+    ++_nextRequestToken;
+    for (final session in _sessions.toList()) {
+      _retire(session);
     }
+    _disposeFuture = _disposeResources();
+    return _disposeFuture!;
+  }
 
-    for (final path in List<String>.from(_temporaryRecordingPaths)) {
-      await deleteRecording(path);
+  Future<void> _disposeResources() async {
+    try {
+      if (await _audioRecorder.isRecording()) {
+        await cancelRecording();
+      }
+      for (final path in List<String>.from(_temporaryRecordingPaths)) {
+        await deleteRecording(path);
+      }
+      final directory = _recordingDirectory;
+      if (directory != null && await directory.exists()) {
+        await directory.delete(recursive: true);
+      }
+      _recordingDirectory = null;
+    } finally {
+      try {
+        await Future.wait(
+          _sessions.toList().map(_releaseSession),
+          eagerError: false,
+        );
+      } finally {
+        // This service is terminal; retained fences are unnecessary even
+        // when a third-party play() future never completes.
+        // Servicio cerrado: descartar barreras sin guardar sesiones.
+        _pendingStartFences.clear();
+        await _audioRecorder.dispose();
+        await _playbackIdController.close();
+        await _recordingIdController.close();
+        await _playbackCompletedController.close();
+        await _playbackPositionController.close();
+        await _playbackDurationController.close();
+      }
     }
-
-    final recordingDirectory = _recordingDirectory;
-
-    if (recordingDirectory != null && await recordingDirectory.exists()) {
-      await recordingDirectory.delete(recursive: true);
-    }
-
-    _recordingDirectory = null;
-
-    await _completionSubscription.cancel();
-    await _positionSubscription.cancel();
-    await _durationSubscription.cancel();
-    await _audioRecorder.dispose();
-    await _audioPlayer.dispose();
-    await _playbackIdController.close();
-    await _recordingIdController.close();
-    await _playbackCompletedController.close();
-    await _playbackPositionController.close();
-    await _playbackDurationController.close();
   }
 }

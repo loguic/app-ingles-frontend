@@ -25,6 +25,7 @@ class _AudioFake implements PronunciationAudioController {
   final _playback = StreamController<String?>.broadcast();
   final _recording = StreamController<String?>.broadcast();
   final _complete = StreamController<String>.broadcast();
+  Completer<void>? pendingStart;
 
   @override
   Stream<String?> get onPlaybackChanged => _playback.stream;
@@ -55,6 +56,7 @@ class _AudioFake implements PronunciationAudioController {
   Future<void> playReference(String asset, {String? playbackId}) async {
     activePlaybackId = playbackId;
     _playback.add(playbackId);
+    await pendingStart?.future;
   }
 
   @override
@@ -63,8 +65,22 @@ class _AudioFake implements PronunciationAudioController {
     _playback.add(playbackId);
   }
 
+  void completeActivePlayback() {
+    final id = activePlaybackId;
+    if (id == null) throw StateError('No active playback');
+    activePlaybackId = null;
+    _complete.add(id);
+    _playback.add(null);
+  }
+
+  void emitCompletion(String id) => _complete.add(id);
+
   @override
-  Future<void> stopPlayback() async {}
+  Future<void> stopPlayback() async {
+    activePlaybackId = null;
+    _playback.add(null);
+  }
+
   @override
   Future<void> cancelRecording() async {}
   @override
@@ -113,7 +129,7 @@ void main() {
   }
 
   testWidgets(
-    'the station requests audio before revealing the specific prompt',
+    'the station unlocks speaking only after reference playback completes',
     (tester) async {
       tester.view.physicalSize = const Size(1280, 1000);
       tester.view.devicePixelRatio = 1;
@@ -130,18 +146,107 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-
+      final record = find.byKey(const Key('station-record'));
+      final play = find.byKey(const Key('station-play-reference'));
       expect(find.text('Ask for the toilet in your own words.'), findsNothing);
       expect(
         find.byKey(const Key('station-comprehension-instruction')),
         findsOneWidget,
       );
-      await tester.tap(find.byKey(const Key('station-play-reference')));
+      expect(tester.widget<FilledButton>(record).onPressed, isNull);
+
+      await tester.tap(play);
+      await tester.pumpAndSettle();
+      expect(find.text('Ask for the toilet in your own words.'), findsNothing);
+      expect(tester.widget<FilledButton>(record).onPressed, isNull);
+      audio.emitCompletion('unrelated-playback');
+      await tester.pumpAndSettle();
+      expect(tester.widget<FilledButton>(record).onPressed, isNull);
+
+      audio.completeActivePlayback();
       await tester.pumpAndSettle();
       expect(
         find.text('Ask for the toilet in your own words.'),
         findsOneWidget,
       );
+      expect(tester.widget<FilledButton>(record).onPressed, isNotNull);
+    },
+  );
+
+  testWidgets('interruption while starting rejects a late completion', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1280, 1000);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final audio = _AudioFake()..pendingStart = Completer<void>();
+    addTearDown(audio.dispose);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: StationJourneyScreen(
+          audioController: audio,
+          journeyStore: _MemoryJourneyStore(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('station-play-reference')));
+    await tester.pump();
+    final interruptedId = audio.activePlaybackId!;
+    await audio.stopPlayback();
+    await tester.pump();
+    audio.pendingStart!.complete();
+    await tester.pump();
+    audio.emitCompletion(interruptedId);
+    await tester.pump();
+    expect(
+      tester
+          .widget<FilledButton>(find.byKey(const Key('station-record')))
+          .onPressed,
+      isNull,
+    );
+  });
+
+  testWidgets(
+    'interruption and old playback completion never unlock recording',
+    (tester) async {
+      tester.view.physicalSize = const Size(1280, 1000);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      final audio = _AudioFake();
+      addTearDown(audio.dispose);
+      await tester.pumpWidget(
+        MaterialApp(
+          home: StationJourneyScreen(
+            audioController: audio,
+            journeyStore: _MemoryJourneyStore(),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final record = find.byKey(const Key('station-record'));
+      final play = find.byKey(const Key('station-play-reference'));
+      await tester.ensureVisible(play);
+      await tester.tap(play);
+      await tester.pumpAndSettle();
+      final interruptedId = audio.activePlaybackId!;
+      await audio.stopPlayback();
+      await tester.pumpAndSettle();
+      expect(tester.widget<FilledButton>(record).onPressed, isNull);
+      audio.emitCompletion(interruptedId);
+      await tester.pumpAndSettle();
+      expect(tester.widget<FilledButton>(record).onPressed, isNull);
+
+      await tester.tap(play);
+      await tester.pumpAndSettle();
+      audio.emitCompletion(interruptedId);
+      await tester.pumpAndSettle();
+      expect(tester.widget<FilledButton>(record).onPressed, isNull);
+      audio.completeActivePlayback();
+      await tester.pumpAndSettle();
+      expect(tester.widget<FilledButton>(record).onPressed, isNotNull);
     },
   );
 
@@ -166,6 +271,12 @@ void main() {
         find.byKey(const Key('station-provisional-audio-label')),
         findsOneWidget,
       );
+      await tester.ensureVisible(
+        find.byKey(const Key('station-play-reference')),
+      );
+      await tester.tap(find.byKey(const Key('station-play-reference')));
+      audio.completeActivePlayback();
+      await tester.pumpAndSettle();
       await tester.scrollUntilVisible(
         find.byKey(const Key('station-record')),
         200,
@@ -188,6 +299,16 @@ void main() {
       await tester.tap(find.byKey(const Key('station-next-situation')));
       await tester.pumpAndSettle();
       expect(find.text('Find the exit'), findsOneWidget);
+      await tester.scrollUntilVisible(
+        find.byKey(const Key('station-record')),
+        200,
+      );
+      expect(
+        tester
+            .widget<FilledButton>(find.byKey(const Key('station-record')))
+            .onPressed,
+        isNull,
+      );
     },
   );
 }

@@ -28,6 +28,8 @@ class StationJourneyScreen extends StatefulWidget {
 
 class _StationJourneyScreenState extends State<StationJourneyScreen> {
   late final PronunciationAudioController _audio;
+  late final StreamSubscription<String> _referenceCompletionSubscription;
+  late final StreamSubscription<String?> _playbackChangeSubscription;
   late final bool _ownsAudio;
   StationJourneyStore? _store;
   StationJourneyPhase _phase = StationJourneyPhase.listen;
@@ -35,7 +37,11 @@ class _StationJourneyScreenState extends State<StationJourneyScreen> {
   String? _initialRecording;
   String? _retryRecording;
   bool _loading = true;
-  bool _referenceRequested = false;
+  bool _referenceCompleted = false;
+  String? _pendingReferencePlaybackId;
+  String? _startingReferencePlaybackId;
+  int _referenceGeneration = 0;
+  bool _referenceStarted = false;
 
   StationSituation get _situation => stationSituations[_situationIndex];
 
@@ -44,6 +50,27 @@ class _StationJourneyScreenState extends State<StationJourneyScreen> {
     super.initState();
     _ownsAudio = widget.audioController == null;
     _audio = widget.audioController ?? PronunciationAudioService();
+    _referenceCompletionSubscription = _audio.onPlaybackCompleted.listen((id) {
+      if (!mounted || id != _pendingReferencePlaybackId) return;
+      setState(() {
+        _referenceCompleted = true;
+        _pendingReferencePlaybackId = null;
+      });
+    });
+    _playbackChangeSubscription = _audio.onPlaybackChanged.listen((id) {
+      if (id == _pendingReferencePlaybackId && id != null) {
+        _referenceStarted = true;
+      }
+      // A stopped/replaced reference is never a completed reference.
+      // Un audio interrumpido o sustituido no cuenta como completado.
+      if (_pendingReferencePlaybackId != null &&
+          id != _pendingReferencePlaybackId &&
+          _audio.activePlaybackId != _pendingReferencePlaybackId &&
+          (_referenceStarted ||
+              _startingReferencePlaybackId != _pendingReferencePlaybackId)) {
+        _pendingReferencePlaybackId = null;
+      }
+    });
     _restore();
   }
 
@@ -88,16 +115,43 @@ class _StationJourneyScreenState extends State<StationJourneyScreen> {
   }
 
   Future<void> _playReference() async {
-    await _audio.playReference(
-      _situation.referenceAudioAsset,
-      playbackId: 'station-reference-${_situation.id}',
-    );
-    if (mounted) setState(() => _referenceRequested = true);
+    // A playback request alone is not evidence of listening.
+    // Solicitar audio no equivale a escucharlo completamente.
+    final playbackId =
+        'station-reference-${_situation.id}-${++_referenceGeneration}';
+    setState(() {
+      _referenceCompleted = false;
+      _referenceStarted = false;
+      _pendingReferencePlaybackId = playbackId;
+      _startingReferencePlaybackId = playbackId;
+    });
+    try {
+      await _audio.playReference(
+        _situation.referenceAudioAsset,
+        playbackId: playbackId,
+      );
+    } catch (_) {
+      if (mounted && _pendingReferencePlaybackId == playbackId) {
+        setState(() => _pendingReferencePlaybackId = null);
+      }
+      rethrow;
+    } finally {
+      if (_startingReferencePlaybackId == playbackId) {
+        _startingReferencePlaybackId = null;
+      }
+    }
   }
 
   Future<void> _record({required bool retry}) async {
+    if (!_referenceCompleted) return;
+    final situationId = _situation.id;
     final allowed = await _audio.hasMicrophonePermission();
-    if (!allowed || !mounted) return;
+    if (!allowed ||
+        !mounted ||
+        !_referenceCompleted ||
+        _situation.id != situationId) {
+      return;
+    }
     await _audio.startRecording(
       'station-${_situation.id}-${retry ? 'retry' : 'initial'}',
     );
@@ -130,13 +184,18 @@ class _StationJourneyScreenState extends State<StationJourneyScreen> {
       _phase = StationJourneyPhase.listen;
       _initialRecording = null;
       _retryRecording = null;
-      _referenceRequested = false;
+      _referenceCompleted = false;
+      _referenceStarted = false;
+      _pendingReferencePlaybackId = null;
+      _startingReferencePlaybackId = null;
     });
     await _save();
   }
 
   @override
   void dispose() {
+    unawaited(_referenceCompletionSubscription.cancel());
+    unawaited(_playbackChangeSubscription.cancel());
     if (_ownsAudio) unawaited(_audio.dispose());
     super.dispose();
   }
@@ -260,7 +319,7 @@ class _StationJourneyScreenState extends State<StationJourneyScreen> {
                 ),
                 const SizedBox(height: 12),
                 Text('Hablar', style: Theme.of(context).textTheme.titleMedium),
-                if (_referenceRequested || _phase == StationJourneyPhase.retry)
+                if (_referenceCompleted)
                   Text(
                     _situation.initialPrompt,
                     key: const Key('station-prompt'),
@@ -288,9 +347,11 @@ class _StationJourneyScreenState extends State<StationJourneyScreen> {
                           ? () => _stop(
                               retry: _phase == StationJourneyPhase.retry,
                             )
-                          : () => _record(
+                          : _referenceCompleted
+                          ? () => _record(
                               retry: _phase == StationJourneyPhase.retry,
-                            ),
+                            )
+                          : null,
                       icon: Icon(recordingActive ? Icons.stop : Icons.mic),
                       label: Text(
                         recordingActive ? 'Detener grabación' : 'Grabar mi voz',

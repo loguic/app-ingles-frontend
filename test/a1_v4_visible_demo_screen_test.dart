@@ -620,6 +620,12 @@ void main() {
 
       await recordAndProcess('own-production');
       expect(find.text('Good: I understood your request.'), findsOneWidget);
+      expect(find.text('Speech recognition transcript'), findsOneWidget);
+      expect(find.text('Meaning evaluation'), findsOneWidget);
+      expect(find.text('The need is clear.'), findsOneWidget);
+      expect(find.text('Learning feedback'), findsOneWidget);
+      expect(find.text('How to pronounce it'), findsOneWidget);
+      expect(find.text('Great job!'), findsNothing);
       expect(
         find.byKey(const Key('a1-v4-lower-support-own-production')),
         findsOneWidget,
@@ -631,7 +637,7 @@ void main() {
       );
       await recordAndProcess('nearby-transfer-food');
       expect(find.byKey(const Key('a1-v4-session-summary')), findsOneWidget);
-      expect(find.textContaining('Great job!'), findsWidgets);
+      expect(find.textContaining('Great job!'), findsNothing);
       expect(
         find.textContaining('You communicated with less support.'),
         findsOneWidget,
@@ -645,6 +651,138 @@ void main() {
       );
     },
   );
+
+  testWidgets('retry keeps the learner on the current activity', (
+    tester,
+  ) async {
+    final audio = _AudioController();
+    addTearDown(audio.dispose);
+    final api = ApiService(
+      client: MockClient(
+        (request) async => http.Response(
+          jsonEncode({
+            'semantic_evaluation': {
+              'status': 'inadequate',
+              'context_relevant': false,
+              'rationale': 'The need is not clear yet.',
+            },
+            'conversational_feedback': 'Try saying what you need.',
+            'next_turn': {
+              'action': 'retry_with_support',
+              'support_level': 'anchors',
+              'reason': 'Try again.',
+            },
+            'cross_turn_improvement': {
+              'comparison_available': false,
+              'trend': 'needs_more_evidence',
+              'evidence': '',
+            },
+            'provenance': {'provider': 'ollama', 'model': 'test-model'},
+          }),
+          200,
+        ),
+      ),
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        home: A1V4VisibleDemoScreen(
+          audioController: audio,
+          apiService: api,
+          speechRecognitionController: _SpeechController(),
+          enableRemoteAudioUpload: false,
+        ),
+      ),
+    );
+    expect(find.text('How to pronounce it'), findsNothing);
+    await tester.ensureVisible(find.byKey(const Key('a1-v4-play-reference')));
+    await tester.tap(find.byKey(const Key('a1-v4-play-reference')));
+    await tester.pump();
+    audio.completePlayback();
+    await tester.pump();
+    await tester.ensureVisible(
+      find.byKey(const Key('a1-v4-record-own-production')),
+    );
+    await tester.tap(find.byKey(const Key('a1-v4-record-own-production')));
+    await tester.pump();
+    await tester.tap(find.byKey(const Key('a1-v4-stop-own-production')));
+    await tester.pump();
+    await tester.ensureVisible(
+      find.byKey(const Key('a1-v4-process-own-production')),
+    );
+    await tester.tap(find.byKey(const Key('a1-v4-process-own-production')));
+    await tester.pump();
+    expect(find.text('Try again using the available support.'), findsOneWidget);
+    expect(find.text('Next: record your answer again.'), findsOneWidget);
+    expect(find.text('Great job!'), findsNothing);
+    expect(
+      find.byKey(const Key('a1-v4-lower-support-own-production')),
+      findsNothing,
+    );
+  });
+
+  testWidgets('needs_repair with continue fails closed', (tester) async {
+    final audio = _AudioController();
+    addTearDown(audio.dispose);
+    final api = ApiService(
+      client: MockClient(
+        (_) async => http.Response(
+          jsonEncode({
+            'semantic_evaluation': {
+              'status': 'needs_repair',
+              'context_relevant': false,
+              'rationale': 'Not clear yet.',
+            },
+            'conversational_feedback': 'Great, continue to the next activity!',
+            'next_turn': {
+              'action': 'continue',
+              'support_level': 'none',
+              'reason': 'Continue.',
+            },
+            'cross_turn_improvement': {
+              'comparison_available': false,
+              'trend': 'needs_more_evidence',
+              'evidence': '',
+            },
+            'provenance': {'provider': 'ollama', 'model': 'test-model'},
+          }),
+          200,
+        ),
+      ),
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        home: A1V4VisibleDemoScreen(
+          audioController: audio,
+          apiService: api,
+          speechRecognitionController: _SpeechController(),
+          enableRemoteAudioUpload: false,
+        ),
+      ),
+    );
+    await tester.ensureVisible(find.byKey(const Key('a1-v4-play-reference')));
+    await tester.tap(find.byKey(const Key('a1-v4-play-reference')));
+    await tester.pump();
+    audio.completePlayback();
+    await tester.pump();
+    await tester.ensureVisible(
+      find.byKey(const Key('a1-v4-record-own-production')),
+    );
+    await tester.tap(find.byKey(const Key('a1-v4-record-own-production')));
+    await tester.pump();
+    await tester.tap(find.byKey(const Key('a1-v4-stop-own-production')));
+    await tester.pump();
+    await tester.ensureVisible(
+      find.byKey(const Key('a1-v4-process-own-production')),
+    );
+    await tester.tap(find.byKey(const Key('a1-v4-process-own-production')));
+    await tester.pump();
+    expect(find.text('Try again using the available support.'), findsOneWidget);
+    expect(find.text('Next: record your answer again.'), findsOneWidget);
+    expect(
+      find.byKey(const Key('a1-v4-lower-support-own-production')),
+      findsNothing,
+    );
+  });
 
   testWidgets(
     'shows comprehension again after returning and reentering A1 v4',

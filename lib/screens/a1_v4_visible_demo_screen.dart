@@ -117,15 +117,18 @@ class _A1V4VisibleDemoScreenState extends State<A1V4VisibleDemoScreen> {
     SpokenTurnEvaluation evaluation,
   ) {
     if (!mounted) return;
+    final needsRepair = evaluation.semanticStatus != 'adequate';
     setState(() {
       // The backend alone selects the next support level and whether this
       // learner should advance. A retry remains on the current turn.
-      if (controlId == 'own-production' &&
+      if (!needsRepair &&
+          controlId == 'own-production' &&
           evaluation.nextAction == 'reduce_support') {
         _lowerSupportLevel = evaluation.nextSupportLevel;
         _lowerSupportProductionUnlocked = true;
       }
-      if (controlId == 'lower-support-own-production' &&
+      if (!needsRepair &&
+          controlId == 'lower-support-own-production' &&
           (evaluation.nextAction == 'continue' ||
               evaluation.nextAction == 'reduce_support')) {
         _transferSupportLevel = evaluation.nextSupportLevel;
@@ -1278,6 +1281,12 @@ class _A1V4OwnProductionState extends State<_A1V4OwnProduction> {
                   audioUploaded: _audioReference != null,
                   processingError: _processingError,
                   evaluation: _evaluation,
+                  controlId: widget.controlId,
+                  playReference: widget.controlId == 'own-production'
+                      ? () => widget.audioController.playReference(
+                          A1V4VisibleDemoScreen.audioAsset,
+                        )
+                      : null,
                 ),
               ],
             ],
@@ -1537,8 +1546,12 @@ class _A1V4ProcessingResult extends StatelessWidget {
     required this.audioUploaded,
     required this.processingError,
     required this.evaluation,
+    required this.controlId,
+    this.playReference,
   });
 
+  final String controlId;
+  final Future<void> Function()? playReference;
   final SpeechRecognitionResult? recognitionResult;
   final bool speechRecognitionAvailable;
   final bool remoteAudioEnabled;
@@ -1562,7 +1575,7 @@ class _A1V4ProcessingResult extends StatelessWidget {
         children: [
           if (transcript != null && transcript.isNotEmpty) ...[
             Text(
-              'Your words',
+              'Speech recognition transcript',
               style: Theme.of(
                 context,
               ).textTheme.labelLarge?.copyWith(color: LoguicTheme.indigo),
@@ -1590,13 +1603,49 @@ class _A1V4ProcessingResult extends StatelessWidget {
           if (evaluation != null) ...[
             const SizedBox(height: 12),
             Text(
-              'Feedback ready',
-              style: Theme.of(
-                context,
-              ).textTheme.labelLarge?.copyWith(color: LoguicTheme.indigo),
+              'Meaning evaluation',
+              style: Theme.of(context).textTheme.labelLarge,
             ),
             const SizedBox(height: 4),
-            const Text('See your learner feedback alongside this activity.'),
+            Text(evaluation!.rationale),
+            const SizedBox(height: 8),
+            Text(
+              'Learning feedback',
+              style: Theme.of(context).textTheme.labelLarge,
+            ),
+            const SizedBox(height: 4),
+            Text(
+              evaluation!.semanticStatus == 'adequate'
+                  ? evaluation!.conversationalFeedback
+                  : 'Try again using the available support.',
+            ),
+            const SizedBox(height: 8),
+            Text(switch (evaluation!.semanticStatus == 'adequate'
+                ? evaluation!.nextAction
+                : 'retry_with_support') {
+              'retry_with_support' => 'Next: record your answer again.',
+              'reduce_support' || 'continue'
+                  when controlId != 'nearby-transfer-food' =>
+                'Next: continue to the next speaking activity.',
+              'continue' ||
+              'reduce_support' => 'Next: review your speaking session.',
+              _ => 'Next: review your feedback.',
+            }),
+            if (playReference != null) ...[
+              const SizedBox(height: 16),
+              Text(
+                'How to pronounce it',
+                style: Theme.of(context).textTheme.titleSmall,
+              ),
+              const SizedBox(height: 4),
+              const Text('Reference: I need water.'),
+              TextButton.icon(
+                onPressed: playReference,
+                icon: const Icon(Icons.volume_up_outlined),
+                label: const Text('Listen to the British reference'),
+              ),
+              const Text('Listen, then use Record again to practise.'),
+            ],
           ] else ...[
             const SizedBox(height: 10),
             const Text('Your feedback will appear here.'),
@@ -2098,93 +2147,28 @@ class _A1V4FeedbackPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
-    final evaluation = capture?.evaluation;
-    final transcript = capture?.transcript?.trim();
-    final received = evaluation != null;
     return Container(
       key: const Key('a1-v4-feedback-panel'),
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: received
-            ? colors.tertiary.withValues(alpha: .10)
-            : colors.surfaceContainerLow.withValues(alpha: .88),
+        color: colors.surfaceContainerLow.withValues(alpha: .88),
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(
-          color: received
-              ? colors.tertiary.withValues(alpha: .42)
-              : colors.outlineVariant,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: .08),
-            blurRadius: 18,
-            offset: const Offset(0, 8),
-          ),
-        ],
+        border: Border.all(color: colors.outlineVariant),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(
-            received ? Icons.auto_awesome : Icons.flag_outlined,
-            color: received ? colors.tertiary : colors.primary,
-          ),
+          Icon(Icons.flag_outlined, color: colors.primary),
           const SizedBox(height: 14),
-          Text(
-            received ? 'Great job!' : 'Your goal',
-            style: Theme.of(
-              context,
-            ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w900),
-          ),
+          Text('Your goal', style: Theme.of(context).textTheme.titleLarge),
           const SizedBox(height: 8),
-          if (!received) ...[
-            const Text(
-              'Listen closely, then use your own voice to ask for what you need.',
-            ),
-            const SizedBox(height: 16),
-            Text(
-              'A short answer is perfect.',
-              style: Theme.of(context).textTheme.bodySmall,
-            ),
-          ] else ...[
-            const Text(
-              'Your answer',
-              style: TextStyle(fontWeight: FontWeight.w800),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              transcript == null || transcript.isEmpty
-                  ? 'Your spoken answer'
-                  : '“$transcript”',
-              style: Theme.of(
-                context,
-              ).textTheme.bodyMedium?.copyWith(fontStyle: FontStyle.italic),
-            ),
-            const SizedBox(height: 16),
-            const Text(
-              'A little feedback',
-              style: TextStyle(fontWeight: FontWeight.w800),
-            ),
-            const SizedBox(height: 4),
-            Text(evaluation.conversationalFeedback),
-            const SizedBox(height: 16),
-            const Text(
-              'Next up',
-              style: TextStyle(fontWeight: FontWeight.w800),
-            ),
-            const SizedBox(height: 4),
-            Text(_nextText(capture!.controlId)),
-          ],
+          const Text(
+            'Listen closely, then use your own voice to ask for what you need.',
+          ),
         ],
       ),
     );
   }
-
-  String _nextText(String controlId) => switch (controlId) {
-    'own-production' => 'Now say it your own way.',
-    'lower-support-own-production' => 'Try the same idea in a new situation.',
-    _ => 'You completed your speaking session.',
-  };
 }
 
 class _A1V4IsolationNotice extends StatelessWidget {

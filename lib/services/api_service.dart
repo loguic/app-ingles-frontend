@@ -7,6 +7,7 @@ import "../models/conversation_attempt_record.dart";
 import "../models/conversation_production_record.dart";
 import "../models/progress_record.dart";
 import '../models/spoken_turn_evaluation.dart';
+import '../models/a1_v4_practice_session.dart';
 import 'package:http/http.dart' as http;
 
 /// Service responsible for communicating with the backend API.
@@ -36,6 +37,149 @@ class ApiService {
     return _client?.post(uri, headers: headers, body: encodedBody) ??
         http.post(uri, headers: headers, body: encodedBody);
   }
+
+  Future<http.Response> _postJsonWithHeaders(
+    Uri uri,
+    Map<String, dynamic> body,
+    Map<String, String> extraHeaders,
+  ) {
+    final headers = {'Content-Type': 'application/json', ...extraHeaders};
+    return _client?.post(uri, headers: headers, body: jsonEncode(body)) ??
+        http.post(uri, headers: headers, body: jsonEncode(body));
+  }
+
+  Future<A1V4PracticeSessionCredentials> createA1V4PracticeSession({
+    required String declaredUserId,
+  }) async {
+    late final http.Response response;
+    try {
+      response = await _postJson(
+        Uri.parse('$baseUrl/a1-v4-practice-sessions'),
+        {'user_id': declaredUserId},
+      );
+    } catch (_) {
+      throw _a1NetworkException();
+    }
+    if (response.statusCode != 200) {
+      throw _a1ExceptionForResponse(response);
+    }
+    try {
+      return A1V4PracticeSessionCredentials.fromJson(
+        jsonDecode(response.body) as Map<String, dynamic>,
+      );
+    } catch (_) {
+      throw _a1UnexpectedResponseException(response.statusCode);
+    }
+  }
+
+  Future<A1V4PracticeSaveConfirmation> saveA1V4PracticeSession({
+    required A1V4PracticeSessionCredentials credentials,
+    required List<Map<String, dynamic>> productions,
+  }) async {
+    late final http.Response response;
+    try {
+      response = await _postJsonWithHeaders(
+        Uri.parse(
+          '$baseUrl/a1-v4-practice-sessions/${credentials.sessionId}/save',
+        ),
+        {'productions': productions},
+        {'X-A1-V4-Practice-Token': credentials.token},
+      );
+    } catch (_) {
+      throw _a1NetworkException();
+    }
+    if (response.statusCode != 200) {
+      throw _a1ExceptionForResponse(response);
+    }
+    try {
+      return A1V4PracticeSaveConfirmation.fromJson(
+        jsonDecode(response.body) as Map<String, dynamic>,
+        expectedSessionId: credentials.sessionId,
+        expectedProductions: productions,
+      );
+    } catch (_) {
+      throw _a1UnexpectedResponseException(response.statusCode);
+    }
+  }
+
+  Future<String> uploadA1V4PracticeAudio({
+    required String audioPath,
+    required A1V4PracticeSessionCredentials credentials,
+  }) async {
+    _lastConversationProductionAudioUploadError = null;
+    final request = http.MultipartRequest(
+      'POST',
+      Uri.parse(
+        '$baseUrl/a1-v4-practice-sessions/${credentials.sessionId}/audio',
+      ),
+    );
+    request.headers['X-A1-V4-Practice-Token'] = credentials.token;
+    late final http.Response response;
+    try {
+      request.files.add(await http.MultipartFile.fromPath('audio', audioPath));
+      final streamed = await (_client?.send(request) ?? request.send());
+      response = await http.Response.fromStream(streamed);
+    } catch (_) {
+      throw _a1NetworkException();
+    }
+    if (response.statusCode != 200) {
+      _lastConversationProductionAudioUploadError =
+          _productionAudioUploadErrorDetail(response);
+      throw _a1ExceptionForResponse(response);
+    }
+    try {
+      final reference =
+          (jsonDecode(response.body)
+              as Map<String, dynamic>)['audio_reference'];
+      if (reference is! String || reference.isEmpty) {
+        throw const FormatException('Missing audio reference.');
+      }
+      return reference;
+    } catch (_) {
+      throw _a1UnexpectedResponseException(response.statusCode);
+    }
+  }
+
+  A1V4PracticeSessionException _a1ExceptionForResponse(http.Response response) {
+    final kind = switch (response.statusCode) {
+      401 || 403 => A1V4PracticeErrorKind.authorization,
+      400 || 422 => A1V4PracticeErrorKind.contract,
+      409 => A1V4PracticeErrorKind.conflict,
+      >= 500 && <= 599 => A1V4PracticeErrorKind.serviceUnavailable,
+      _ => A1V4PracticeErrorKind.unexpectedResponse,
+    };
+    final detail = switch (kind) {
+      A1V4PracticeErrorKind.authorization =>
+        'The protected practice session is not authorized.',
+      A1V4PracticeErrorKind.contract => 'The practice data was not accepted.',
+      A1V4PracticeErrorKind.conflict =>
+        'The practice session already has different saved content.',
+      A1V4PracticeErrorKind.serviceUnavailable =>
+        'The practice service is unavailable.',
+      A1V4PracticeErrorKind.unexpectedResponse =>
+        'The practice service returned an unexpected response.',
+      A1V4PracticeErrorKind.network =>
+        'The practice service could not be reached.',
+    };
+    return A1V4PracticeSessionException(
+      kind: kind,
+      statusCode: response.statusCode,
+      detail: detail,
+    );
+  }
+
+  A1V4PracticeSessionException _a1NetworkException() =>
+      const A1V4PracticeSessionException(
+        kind: A1V4PracticeErrorKind.network,
+        detail: 'The practice service could not be reached.',
+      );
+
+  A1V4PracticeSessionException _a1UnexpectedResponseException(int statusCode) =>
+      A1V4PracticeSessionException(
+        kind: A1V4PracticeErrorKind.unexpectedResponse,
+        statusCode: statusCode,
+        detail: 'The practice service returned an unexpected response.',
+      );
 
   /// Requests real, non-authoritative spoken-turn coaching from the backend.
   /// No local semantic interpretation or adaptive decision is made here.

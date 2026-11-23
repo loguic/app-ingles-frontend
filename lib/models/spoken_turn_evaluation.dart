@@ -50,6 +50,22 @@ class SpokenTurnEvaluation {
       model: provenance['model'] as String,
     );
   }
+
+  Map<String, dynamic> toJson() => {
+    'semantic_status': semanticStatus,
+    'context_relevant': contextRelevant,
+    'rationale': rationale,
+    'conversational_feedback': conversationalFeedback,
+    'next_turn': {
+      'action': nextAction,
+      'support_level': nextSupportLevel,
+      'reason': nextReason,
+    },
+    'comparison_available': comparisonAvailable,
+    'improvement_trend': improvementTrend,
+    'improvement_evidence': improvementEvidence,
+    'provenance': {'provider': provider, 'model': model},
+  };
 }
 
 class SpokenTurnEvaluationException implements Exception {

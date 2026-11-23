@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:app_ingles/models/experience_attempt.dart';
+import 'package:app_ingles/models/a1_v4_practice_session.dart';
 import 'package:app_ingles/services/api_service.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
@@ -23,7 +24,229 @@ Map<String, dynamic> decodeBody(http.Request request) {
   return jsonDecode(request.body) as Map<String, dynamic>;
 }
 
+Map<String, dynamic> a1SaveConfirmation({
+  String sessionId = 'c1f5d0f0-2117-4a85-8dc2-52da15c6eb18',
+  bool saved = true,
+  int productionCount = 3,
+}) => {
+  'session_id': sessionId,
+  'practice_session': true,
+  'curricular_accreditation': false,
+  'practice_completed': true,
+  'saved': saved,
+  'declared_user_id': 'declared-user',
+  'created_at': '2026-11-23T03:13:40Z',
+  'saved_at': '2026-11-23T03:14:40Z',
+  'productions': const [
+    {
+      'activity_id': 'own-production',
+      'audio_reference': 'production-audio://one',
+      'transcript': 'I need water.',
+      'client_evaluation': {'semantic_status': 'adequate'},
+      'backend_verified_evidence': {'audio_linked_to_session': true},
+    },
+    {
+      'activity_id': 'lower-support-own-production',
+      'audio_reference': 'production-audio://two',
+      'transcript': 'I need water.',
+      'client_evaluation': {'semantic_status': 'adequate'},
+      'backend_verified_evidence': {'audio_linked_to_session': true},
+    },
+    {
+      'activity_id': 'nearby-transfer-food',
+      'audio_reference': 'production-audio://three',
+      'transcript': 'I need food.',
+      'client_evaluation': {'semantic_status': 'adequate'},
+      'backend_verified_evidence': {'audio_linked_to_session': true},
+    },
+  ].take(productionCount).toList(),
+};
+
+List<Map<String, dynamic>> submittedA1Productions() =>
+    (a1SaveConfirmation()["productions"] as List).map((row) {
+      final item = Map<String, dynamic>.from(row as Map);
+      item.remove("backend_verified_evidence");
+      return item;
+    }).toList();
+
 void main() {
+  test('A1 v4 practice uses the protected session contract', () async {
+    final requests = <http.Request>[];
+    final service = ApiService(
+      client: MockClient((request) async {
+        requests.add(request);
+        if (request.url.path.endsWith('/a1-v4-practice-sessions')) {
+          return http.Response(
+            jsonEncode({
+              'session_id': 'c1f5d0f0-2117-4a85-8dc2-52da15c6eb18',
+              'token': 'a' * 32,
+              'practice_session': true,
+              'curricular_accreditation': false,
+            }),
+            200,
+          );
+        }
+        return http.Response(jsonEncode(a1SaveConfirmation()), 200);
+      }),
+    );
+
+    final credentials = await service.createA1V4PracticeSession(
+      declaredUserId: 'declared-user',
+    );
+    final confirmation = await service.saveA1V4PracticeSession(
+      credentials: credentials,
+      productions: submittedA1Productions(),
+    );
+
+    expect(decodeBody(requests[0]), {'user_id': 'declared-user'});
+    expect(
+      requests[1].url.path,
+      '/api/v1/a1-v4-practice-sessions/c1f5d0f0-2117-4a85-8dc2-52da15c6eb18/save',
+    );
+    expect(requests[1].headers['x-a1-v4-practice-token'], 'a' * 32);
+    expect(requests[1].body, isNot(contains('curricular_accreditation')));
+    expect(confirmation.saved, isTrue);
+    expect(confirmation.productionCount, 3);
+  });
+
+  test("A1 v4 rejects HTTP 200 with different saved content", () async {
+    final credentials = A1V4PracticeSessionCredentials(
+      sessionId: "c1f5d0f0-2117-4a85-8dc2-52da15c6eb18",
+      token: "a" * 32,
+    );
+
+    for (final field in [
+      "audio_reference",
+      "transcript",
+      "client_evaluation",
+    ]) {
+      final response = a1SaveConfirmation();
+      final rows = response["productions"] as List;
+      final altered = Map<String, dynamic>.from(rows[0] as Map);
+
+      altered[field] = field == "client_evaluation"
+          ? {"semantic_status": "needs_repair"}
+          : "different-value";
+
+      response["productions"] = [altered, ...rows.skip(1)];
+
+      final service = ApiService(
+        client: MockClient(
+          (_) async => http.Response(jsonEncode(response), 200),
+        ),
+      );
+
+      await expectLater(
+        service.saveA1V4PracticeSession(
+          credentials: credentials,
+          productions: submittedA1Productions(),
+        ),
+        throwsA(
+          isA<A1V4PracticeSessionException>().having(
+            (error) => error.kind,
+            "kind",
+            A1V4PracticeErrorKind.unexpectedResponse,
+          ),
+        ),
+      );
+    }
+  });
+
+  test('A1 v4 save rejects incoherent HTTP 200 responses', () async {
+    final credentials = A1V4PracticeSessionCredentials(
+      sessionId: 'c1f5d0f0-2117-4a85-8dc2-52da15c6eb18',
+      token: 'a' * 32,
+    );
+    final invalidResponses = <Object>[
+      '',
+      a1SaveConfirmation(saved: false),
+      a1SaveConfirmation(sessionId: 'other-session'),
+      a1SaveConfirmation(productionCount: 2),
+    ];
+
+    for (final payload in invalidResponses) {
+      final service = ApiService(
+        client: MockClient(
+          (_) async => http.Response(
+            payload is String ? payload : jsonEncode(payload),
+            200,
+          ),
+        ),
+      );
+
+      await expectLater(
+        service.saveA1V4PracticeSession(
+          credentials: credentials,
+          productions: const [],
+        ),
+        throwsA(
+          isA<A1V4PracticeSessionException>().having(
+            (error) => error.kind,
+            'kind',
+            A1V4PracticeErrorKind.unexpectedResponse,
+          ),
+        ),
+      );
+    }
+  });
+
+  test(
+    'A1 v4 classifies authorization, contract, conflict, and service errors',
+    () async {
+      final credentials = A1V4PracticeSessionCredentials(
+        sessionId: 'c1f5d0f0-2117-4a85-8dc2-52da15c6eb18',
+        token: 'a' * 32,
+      );
+      const cases = {
+        403: A1V4PracticeErrorKind.authorization,
+        422: A1V4PracticeErrorKind.contract,
+        409: A1V4PracticeErrorKind.conflict,
+        503: A1V4PracticeErrorKind.serviceUnavailable,
+      };
+
+      for (final entry in cases.entries) {
+        final service = ApiService(
+          client: MockClient(
+            (_) async =>
+                http.Response('{"detail":"sensitive-placeholder"}', entry.key),
+          ),
+        );
+        await expectLater(
+          service.saveA1V4PracticeSession(
+            credentials: credentials,
+            productions: const [],
+          ),
+          throwsA(
+            isA<A1V4PracticeSessionException>()
+                .having((error) => error.kind, 'kind', entry.value)
+                .having(
+                  (error) => error.detail,
+                  'safe detail',
+                  isNot(contains('sensitive-placeholder')),
+                ),
+          ),
+        );
+      }
+    },
+  );
+
+  test('A1 v4 classifies transport failures as network errors', () async {
+    final service = ApiService(
+      client: MockClient((_) async => throw http.ClientException('offline')),
+    );
+
+    await expectLater(
+      service.createA1V4PracticeSession(declaredUserId: 'declared-user'),
+      throwsA(
+        isA<A1V4PracticeSessionException>().having(
+          (error) => error.kind,
+          'kind',
+          A1V4PracticeErrorKind.network,
+        ),
+      ),
+    );
+  });
+
   test('start and GET use only the authoritative attempt contract', () async {
     final requests = <http.Request>[];
     final service = ApiService(

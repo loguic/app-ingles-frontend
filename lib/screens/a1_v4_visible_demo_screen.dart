@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../models/spoken_turn_evaluation.dart';
+import '../models/a1_v4_practice_session.dart';
 import '../services/api_service.dart';
 import '../services/pronunciation_audio_service.dart';
 import '../services/speech_recognition_factory.dart';
@@ -64,6 +65,9 @@ class _A1V4VisibleDemoScreenState extends State<A1V4VisibleDemoScreen> {
   bool _isSavingSession = false;
   bool _sessionSaved = false;
   String? _sessionSaveError;
+  A1V4PracticeSessionCredentials? _practiceCredentials;
+  String? _practiceSessionError;
+  bool _isCreatingPracticeSession = false;
 
   @override
   void initState() {
@@ -75,6 +79,7 @@ class _A1V4VisibleDemoScreenState extends State<A1V4VisibleDemoScreen> {
         ? widget.speechRecognitionController ??
               createConfiguredSpeechRecognitionController()
         : null;
+    if (widget.enableRemoteAudioUpload) unawaited(_createPracticeSession());
     _referenceCompletionSubscription = _audioController.onPlaybackCompleted
         .listen((playbackId) {
           final accepted =
@@ -85,6 +90,47 @@ class _A1V4VisibleDemoScreenState extends State<A1V4VisibleDemoScreen> {
             setState(() => _referenceListened = true);
           }
         });
+  }
+
+  Future<void> _createPracticeSession() async {
+    if (_isCreatingPracticeSession || _practiceCredentials != null) return;
+    setState(() => _isCreatingPracticeSession = true);
+    try {
+      final credentials = await _apiService.createA1V4PracticeSession(
+        declaredUserId: widget.userId,
+      );
+      if (mounted) {
+        setState(() {
+          _practiceCredentials = credentials;
+          _practiceSessionError = null;
+        });
+      }
+    } on A1V4PracticeSessionException catch (error) {
+      if (mounted) {
+        setState(
+          () => _practiceSessionError = switch (error.kind) {
+            A1V4PracticeErrorKind.authorization =>
+              'This practice session could not be authorized.',
+            A1V4PracticeErrorKind.contract =>
+              'The practice session request was not accepted.',
+            A1V4PracticeErrorKind.serviceUnavailable =>
+              'The practice service is unavailable.',
+            A1V4PracticeErrorKind.network =>
+              'The practice service could not be reached.',
+            _ => 'This practice session could not be prepared.',
+          },
+        );
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(
+          () => _practiceSessionError =
+              'This practice session could not be prepared.',
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isCreatingPracticeSession = false);
+    }
   }
 
   Future<void> _playReference() async {
@@ -153,6 +199,8 @@ class _A1V4VisibleDemoScreenState extends State<A1V4VisibleDemoScreen> {
 
   Future<void> _saveSession() async {
     if (_isSavingSession || _sessionSaved || _captures.length != 3) return;
+    final credentials = _practiceCredentials;
+    if (credentials == null) return;
     final ordered = [
       _captures['own-production'],
       _captures['lower-support-own-production'],
@@ -165,32 +213,43 @@ class _A1V4VisibleDemoScreenState extends State<A1V4VisibleDemoScreen> {
       _sessionSaveError = null;
     });
     try {
-      final saved = await _apiService.saveConversationProductions(
-        userId: widget.userId,
-        levelId: 'A1',
-        unitId: 'a1-u1',
-        lessonId: 'a1-u1-l1',
-        conversationId: 'a1-u1-l1-c2',
+      final confirmation = await _apiService.saveA1V4PracticeSession(
+        credentials: credentials,
         productions: ordered
             .whereType<_A1V4ProductionCapture>()
             .map(
               (capture) => {
-                'prompt_id': capture.promptId,
-                'turn_id': capture.turnId,
-                'modality': 'voice',
+                'activity_id': capture.controlId,
                 'audio_reference': capture.audioReference,
+                'transcript': capture.transcript,
+                'client_evaluation': capture.evaluation?.toJson(),
               },
             )
             .toList(),
       );
       if (!mounted) return;
       setState(() {
-        _sessionSaved = saved;
-        if (!saved) {
-          _sessionSaveError =
-              'Your answers are still here. Please try saving again.';
-        }
+        _sessionSaved = confirmation.saved;
       });
+    } on A1V4PracticeSessionException catch (error) {
+      if (mounted) {
+        setState(() {
+          _sessionSaveError = switch (error.kind) {
+            A1V4PracticeErrorKind.authorization =>
+              'This practice session is no longer authorized. Your answers are still here.',
+            A1V4PracticeErrorKind.contract =>
+              'The practice data was not accepted. Your answers are still here.',
+            A1V4PracticeErrorKind.conflict =>
+              'A different saved version already exists. Your answers are still here.',
+            A1V4PracticeErrorKind.serviceUnavailable =>
+              'The practice service is unavailable. Your answers are still here.',
+            A1V4PracticeErrorKind.network =>
+              'The practice service could not be reached. Your answers are still here.',
+            A1V4PracticeErrorKind.unexpectedResponse =>
+              'The practice service returned an unexpected response. Your answers are still here.',
+          };
+        });
+      }
     } catch (_) {
       if (mounted) {
         setState(() {
@@ -323,6 +382,26 @@ class _A1V4VisibleDemoScreenState extends State<A1V4VisibleDemoScreen> {
         ),
         if (_referenceListened) ...[
           const SizedBox(height: 22),
+          if (widget.enableRemoteAudioUpload &&
+              _practiceSessionError != null) ...[
+            const SizedBox(height: 12),
+            Text(
+              _practiceSessionError!,
+              style: TextStyle(color: Theme.of(context).colorScheme.error),
+            ),
+            OutlinedButton.icon(
+              key: const Key("a1-v4-retry-create-session"),
+              onPressed: _isCreatingPracticeSession
+                  ? null
+                  : _createPracticeSession,
+              icon: const Icon(Icons.refresh),
+              label: Text(
+                _isCreatingPracticeSession
+                    ? "Connecting..."
+                    : "Retry session connection",
+              ),
+            ),
+          ],
           _buildOwnProduction(),
         ],
         if (_lowerSupportProductionUnlocked) ...[
@@ -339,6 +418,8 @@ class _A1V4VisibleDemoScreenState extends State<A1V4VisibleDemoScreen> {
             captures: _captures,
             audioController: _audioController,
             remoteAudioEnabled: widget.enableRemoteAudioUpload,
+            practiceSessionReady: _practiceCredentials != null,
+            practiceSessionError: _practiceSessionError,
             isSaving: _isSavingSession,
             saved: _sessionSaved,
             saveError: _sessionSaveError,
@@ -359,6 +440,7 @@ class _A1V4VisibleDemoScreenState extends State<A1V4VisibleDemoScreen> {
     title: 'Say it yourself',
     productionPrompt: 'Look at the scene and say what you need.',
     supportLevel: 'anchors',
+    practiceCredentials: _practiceCredentials,
     requiredMeaningTerms: const ['need', 'water'],
     context: 'A learner is thirsty beside a refill tap and needs water.',
     apiService: _apiService,
@@ -381,6 +463,7 @@ class _A1V4VisibleDemoScreenState extends State<A1V4VisibleDemoScreen> {
     title: 'Your own way',
     productionPrompt: 'Look at the scene. Speak in your own words.',
     supportLevel: _lowerSupportLevel,
+    practiceCredentials: _practiceCredentials,
     requiredMeaningTerms: const ['need', 'water'],
     context: 'The learner still needs water at the refill tap.',
     apiService: _apiService,
@@ -403,6 +486,7 @@ class _A1V4VisibleDemoScreenState extends State<A1V4VisibleDemoScreen> {
     title: 'A new situation',
     productionPrompt: 'Look at the scene. Speak in your own words.',
     supportLevel: _transferSupportLevel,
+    practiceCredentials: _practiceCredentials,
     requiredMeaningTerms: const ['need', 'food'],
     context: 'A nearby new situation: the learner needs food.',
     apiService: _apiService,
@@ -750,6 +834,7 @@ class _A1V4OwnProduction extends StatefulWidget {
     required this.context,
     required this.enableRemoteAudioUpload,
     required this.userId,
+    this.practiceCredentials,
     this.speechRecognitionController,
     this.contextAsset,
     this.contextSemanticLabel,
@@ -774,6 +859,7 @@ class _A1V4OwnProduction extends StatefulWidget {
   final String context;
   final bool enableRemoteAudioUpload;
   final String userId;
+  final A1V4PracticeSessionCredentials? practiceCredentials;
   final String? contextAsset;
   final String? contextSemanticLabel;
   final ValueChanged<_A1V4ProductionCapture>? onCaptureChanged;
@@ -799,7 +885,9 @@ class _A1V4OwnProductionState extends State<_A1V4OwnProduction> {
   String? _audioReference;
   SpokenTurnEvaluation? _evaluation;
   String? _processingError;
+  String? _audioUploadError;
   bool _isProcessing = false;
+  bool _isUploadingAudio = false;
   bool _isStartingRecording = false;
   bool _isStartingPlayback = false;
   String? _recordingStartError;
@@ -919,6 +1007,7 @@ class _A1V4OwnProductionState extends State<_A1V4OwnProduction> {
           _audioReference = null;
           _evaluation = null;
           _processingError = null;
+          _audioUploadError = null;
         });
       }
       await widget.audioController.startRecording(widget.recordingId);
@@ -944,6 +1033,7 @@ class _A1V4OwnProductionState extends State<_A1V4OwnProduction> {
         _audioReference = null;
         _evaluation = null;
         _processingError = null;
+        _audioUploadError = null;
       });
       if (path != null) {
         _notifyCapture();
@@ -1002,25 +1092,7 @@ class _A1V4OwnProductionState extends State<_A1V4OwnProduction> {
       }
     }
 
-    if (widget.enableRemoteAudioUpload) {
-      try {
-        _audioReference = await widget.apiService
-            .uploadConversationProductionAudio(path);
-        if (_audioReference == null) {
-          final detail =
-              widget.apiService.lastConversationProductionAudioUploadError;
-          errors.add(
-            detail == null
-                ? 'We could not save that answer. You can still get feedback.'
-                : 'We could not save that answer. You can still get feedback.',
-          );
-        }
-      } catch (_) {
-        errors.add(
-          'We could not save that answer. You can still get feedback.',
-        );
-      }
-    }
+    if (widget.enableRemoteAudioUpload) await _uploadCurrentRecording();
 
     final transcript = _recognitionResult?.transcript?.trim();
     if (transcript == null || transcript.isEmpty) {
@@ -1059,6 +1131,68 @@ class _A1V4OwnProductionState extends State<_A1V4OwnProduction> {
         _isProcessing = false;
       });
       _notifyCapture();
+    }
+  }
+
+  Future<bool> _uploadCurrentRecording() async {
+    final path = _recordingPath;
+    if (path == null || _isUploadingAudio) return false;
+    final credentials = widget.practiceCredentials;
+    if (credentials == null) {
+      if (mounted) {
+        setState(() {
+          _audioUploadError =
+              'The protected practice session is still preparing. Your recording is still here.';
+        });
+      }
+      return false;
+    }
+    setState(() {
+      _isUploadingAudio = true;
+      _audioUploadError = null;
+    });
+    try {
+      final reference = await widget.apiService.uploadA1V4PracticeAudio(
+        audioPath: path,
+        credentials: credentials,
+      );
+      if (!mounted) return false;
+      setState(() {
+        _audioReference = reference;
+        _audioUploadError = null;
+      });
+      _notifyCapture();
+      return true;
+    } on A1V4PracticeSessionException catch (error) {
+      if (mounted) {
+        setState(() {
+          _audioUploadError = switch (error.kind) {
+            A1V4PracticeErrorKind.authorization =>
+              'This practice session is no longer authorized. Your recording is still here.',
+            A1V4PracticeErrorKind.contract =>
+              'The recording was not accepted. Your recording is still here.',
+            A1V4PracticeErrorKind.conflict =>
+              'The practice session has conflicting saved data. Your recording is still here.',
+            A1V4PracticeErrorKind.serviceUnavailable =>
+              'The practice service is unavailable. Your recording is still here.',
+            A1V4PracticeErrorKind.network =>
+              'The practice service could not be reached. Your recording is still here.',
+            A1V4PracticeErrorKind.unexpectedResponse =>
+              'The practice service returned an unexpected response. Your recording is still here.',
+          };
+        });
+      }
+      return false;
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _audioUploadError =
+              'The recording could not be uploaded. Your recording is still here.';
+        });
+      }
+      return false;
+    } finally {
+      if (mounted) setState(() => _isUploadingAudio = false);
     }
   }
 
@@ -1105,6 +1239,7 @@ class _A1V4OwnProductionState extends State<_A1V4OwnProduction> {
         _audioReference = null;
         _evaluation = null;
         _processingError = null;
+        _audioUploadError = null;
       });
     }
   }
@@ -1205,6 +1340,7 @@ class _A1V4OwnProductionState extends State<_A1V4OwnProduction> {
                   enabled:
                       !_anotherRecordingIsActive &&
                       !_isProcessing &&
+                      !_isUploadingAudio &&
                       !_isStartingRecording,
                   onPressed: _isRecording
                       ? _stopRecording
@@ -1239,13 +1375,18 @@ class _A1V4OwnProductionState extends State<_A1V4OwnProduction> {
                         onPressed: _playRecording,
                       ),
                       TextButton.icon(
-                        onPressed: _isProcessing ? null : _deleteRecording,
+                        onPressed: _isProcessing || _isUploadingAudio
+                            ? null
+                            : _deleteRecording,
                         icon: const Icon(Icons.mic_none_outlined),
                         label: const Text('Record again'),
                       ),
                       FilledButton.icon(
                         key: Key('a1-v4-process-${widget.controlId}'),
-                        onPressed: _isProcessing || _processingComplete
+                        onPressed:
+                            _isProcessing ||
+                                _isUploadingAudio ||
+                                _processingComplete
                             ? null
                             : _processRecording,
                         icon: _isProcessing
@@ -1269,6 +1410,28 @@ class _A1V4OwnProductionState extends State<_A1V4OwnProduction> {
                               : 'Get feedback',
                         ),
                       ),
+                      if (widget.enableRemoteAudioUpload &&
+                          _audioReference == null)
+                        OutlinedButton.icon(
+                          key: Key('a1-v4-retry-upload-${widget.controlId}'),
+                          onPressed: _isProcessing || _isUploadingAudio
+                              ? null
+                              : _uploadCurrentRecording,
+                          icon: _isUploadingAudio
+                              ? const SizedBox(
+                                  width: 18,
+                                  height: 18,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
+                                )
+                              : const Icon(Icons.cloud_upload_outlined),
+                          label: Text(
+                            _isUploadingAudio
+                                ? 'Uploading…'
+                                : 'Retry saving recording',
+                          ),
+                        ),
                     ],
                   ),
                 ),
@@ -1279,7 +1442,16 @@ class _A1V4OwnProductionState extends State<_A1V4OwnProduction> {
                       widget.speechRecognitionController != null,
                   remoteAudioEnabled: widget.enableRemoteAudioUpload,
                   audioUploaded: _audioReference != null,
-                  processingError: _processingError,
+                  processingError:
+                      [
+                        _processingError,
+                        _audioUploadError,
+                      ].whereType<String>().isEmpty
+                      ? null
+                      : [
+                          _processingError,
+                          _audioUploadError,
+                        ].whereType<String>().join(' '),
                   evaluation: _evaluation,
                   controlId: widget.controlId,
                   playReference: widget.controlId == 'own-production'
@@ -1661,6 +1833,8 @@ class _A1V4SessionSummary extends StatelessWidget {
     required this.captures,
     required this.audioController,
     required this.remoteAudioEnabled,
+    required this.practiceSessionReady,
+    required this.practiceSessionError,
     required this.isSaving,
     required this.saved,
     required this.saveError,
@@ -1670,6 +1844,8 @@ class _A1V4SessionSummary extends StatelessWidget {
   final Map<String, _A1V4ProductionCapture> captures;
   final PronunciationAudioController audioController;
   final bool remoteAudioEnabled;
+  final bool practiceSessionReady;
+  final String? practiceSessionError;
   final bool isSaving;
   final bool saved;
   final String? saveError;
@@ -1683,9 +1859,14 @@ class _A1V4SessionSummary extends StatelessWidget {
       ('lower-support-own-production', 'Your own way', 2),
       ('nearby-transfer-food', 'A new situation', 3),
     ];
-    final allUploaded = items.every(
-      (item) => captures[item.$1]?.audioReference != null,
-    );
+    final readyToSave =
+        practiceSessionReady &&
+        items.every((item) {
+          final capture = captures[item.$1];
+          return capture?.audioReference != null &&
+              capture?.transcript != null &&
+              capture?.evaluation != null;
+        });
 
     return Card(
       key: const Key('a1-v4-session-summary'),
@@ -1725,7 +1906,7 @@ class _A1V4SessionSummary extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             Text(
-              'You built confidence, then used your English in a new moment.',
+              'Practice recordings and feedback are kept separate from curriculum progress.',
               style: Theme.of(
                 context,
               ).textTheme.bodyMedium?.copyWith(color: colors.onSurfaceVariant),
@@ -1735,6 +1916,20 @@ class _A1V4SessionSummary extends StatelessWidget {
               labels: items.map((item) => item.$2).toList(),
             ),
             const SizedBox(height: 18),
+            Text(
+              'RECORDED: ${captures.length}/3  •  EVALUATED: ${captures.values.where((capture) => capture.evaluation != null).length}/3',
+            ),
+            const SizedBox(height: 6),
+            Text(
+              'PRACTICE COMPLETED: ${captures.length == 3 && captures.values.every((capture) => capture.evaluation?.semanticStatus == 'adequate') ? 'yes' : 'not yet'}  •  SAVED: ${saved ? 'yes' : 'not yet'}',
+            ),
+            if (practiceSessionError != null) ...[
+              const SizedBox(height: 8),
+              Text(
+                practiceSessionError!,
+                style: TextStyle(color: colors.error),
+              ),
+            ],
             for (final item in items)
               if (captures[item.$1] case final capture?) ...[
                 _A1V4SummaryRecording(
@@ -1774,7 +1969,7 @@ class _A1V4SessionSummary extends StatelessWidget {
               const SizedBox(height: 16),
               FilledButton.icon(
                 key: const Key('a1-v4-save-session'),
-                onPressed: allUploaded && !isSaving && !saved ? onSave : null,
+                onPressed: readyToSave && !isSaving && !saved ? onSave : null,
                 icon: isSaving
                     ? const SizedBox(
                         width: 18,
@@ -1790,9 +1985,11 @@ class _A1V4SessionSummary extends StatelessWidget {
                   saved ? 'Session saved' : 'Save my speaking session',
                 ),
               ),
-              if (!allUploaded && !saved) ...[
+              if (!readyToSave && !saved) ...[
                 const SizedBox(height: 8),
-                const Text('Finish each answer to save your full session.'),
+                const Text(
+                  'Record and receive feedback for each answer before saving.',
+                ),
               ],
             ],
             if (saveError != null) ...[

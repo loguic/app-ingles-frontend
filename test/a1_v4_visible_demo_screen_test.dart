@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:app_ingles/models/a1_v4_practice_session.dart';
+import 'package:app_ingles/models/spoken_turn_evaluation.dart';
 import 'package:app_ingles/screens/a1_v4_visible_demo_screen.dart';
 import 'package:app_ingles/screens/visual_demo_screens.dart';
 import 'package:app_ingles/services/pronunciation_audio_service.dart';
@@ -25,6 +27,7 @@ class _AudioController implements PronunciationAudioController {
   int stopPlaybackCalls = 0;
   bool microphonePermission = true;
   int microphonePermissionChecks = 0;
+  String recordingPath = '/tmp/a1-v4-water.wav';
 
   @override
   String? activePlaybackId;
@@ -101,7 +104,7 @@ class _AudioController implements PronunciationAudioController {
   Future<String?> stopRecording() async {
     activeRecordingId = null;
     _recording.add(null);
-    return '/tmp/a1-v4-water.wav';
+    return recordingPath;
   }
 
   @override
@@ -140,6 +143,110 @@ class _SpeechController implements SpeechRecognitionController {
     turnId: request.turnId,
     promptId: request.promptId,
   );
+}
+
+class _RetryApiService extends ApiService {
+  int uploadCalls = 0;
+  final List<String> uploadedPaths = [];
+
+  @override
+  Future<A1V4PracticeSessionCredentials> createA1V4PracticeSession({
+    required String declaredUserId,
+  }) async => A1V4PracticeSessionCredentials(
+    sessionId: 'c1f5d0f0-2117-4a85-8dc2-52da15c6eb18',
+    token: 'a' * 32,
+  );
+
+  @override
+  Future<String> uploadA1V4PracticeAudio({
+    required String audioPath,
+    required A1V4PracticeSessionCredentials credentials,
+  }) async {
+    uploadCalls += 1;
+    uploadedPaths.add(audioPath);
+    if (uploadCalls == 1) {
+      throw const A1V4PracticeSessionException(
+        kind: A1V4PracticeErrorKind.serviceUnavailable,
+        detail: 'The practice service is unavailable.',
+        statusCode: 503,
+      );
+    }
+    return 'production-audio://retry';
+  }
+
+  @override
+  Future<SpokenTurnEvaluation> evaluateSpokenTurn({
+    required String transcript,
+    required Map<String, dynamic> target,
+    required String context,
+    required Map<String, dynamic> currentTurn,
+    required List<Map<String, dynamic>> priorTurnEvidence,
+    String? audioReference,
+    String? experienceAttemptId,
+  }) async => SpokenTurnEvaluation.fromJson({
+    'semantic_evaluation': {
+      'status': 'adequate',
+      'context_relevant': true,
+      'rationale': 'The need is clear.',
+    },
+    'conversational_feedback': 'Good: I understood your request.',
+    'next_turn': {
+      'action': 'reduce_support',
+      'support_level': 'none',
+      'reason': 'Continue.',
+    },
+    'cross_turn_improvement': {
+      'comparison_available': false,
+      'trend': 'needs_more_evidence',
+      'evidence': '',
+    },
+    'provenance': {'provider': 'test', 'model': 'test-model'},
+    'mastery_awarded': false,
+  });
+}
+
+class _FlakyCreateApiService extends _UnexpectedSaveApiService {
+  int createCalls = 0;
+
+  @override
+  Future<A1V4PracticeSessionCredentials> createA1V4PracticeSession({
+    required String declaredUserId,
+  }) async {
+    createCalls++;
+
+    if (createCalls == 1) {
+      throw const A1V4PracticeSessionException(
+        kind: A1V4PracticeErrorKind.network,
+        detail: "Connection unavailable.",
+      );
+    }
+
+    return super.createA1V4PracticeSession(declaredUserId: declaredUserId);
+  }
+}
+
+class _UnexpectedSaveApiService extends _RetryApiService {
+  @override
+  Future<String> uploadA1V4PracticeAudio({
+    required String audioPath,
+    required A1V4PracticeSessionCredentials credentials,
+  }) async {
+    uploadCalls += 1;
+    uploadedPaths.add(audioPath);
+    return 'production-audio://answer-$uploadCalls';
+  }
+
+  @override
+  Future<A1V4PracticeSaveConfirmation> saveA1V4PracticeSession({
+    required A1V4PracticeSessionCredentials credentials,
+    required List<Map<String, dynamic>> productions,
+  }) async {
+    throw const A1V4PracticeSessionException(
+      kind: A1V4PracticeErrorKind.unexpectedResponse,
+      detail: 'The practice service returned an unexpected response.',
+      statusCode: 200,
+    );
+  }
 }
 
 void main() {
@@ -718,6 +825,193 @@ void main() {
       find.byKey(const Key('a1-v4-lower-support-own-production')),
       findsNothing,
     );
+  });
+
+  testWidgets("failed session creation recovers without losing the WAV", (
+    tester,
+  ) async {
+    final audio = _AudioController();
+    addTearDown(audio.dispose);
+    final api = _FlakyCreateApiService();
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: A1V4VisibleDemoScreen(
+          audioController: audio,
+          apiService: api,
+          speechRecognitionController: _SpeechController(),
+        ),
+      ),
+    );
+
+    await tester.pump();
+
+    expect(api.createCalls, 1);
+
+    final retrySession = find.byKey(const Key("a1-v4-retry-create-session"));
+
+    final play = find.byKey(const Key("a1-v4-play-reference"));
+
+    await tester.ensureVisible(play);
+    await tester.tap(play);
+    await tester.pump();
+
+    audio.completePlayback();
+    await tester.pump();
+
+    expect(retrySession, findsOneWidget);
+
+    final record = find.byKey(const Key("a1-v4-record-own-production"));
+
+    await tester.ensureVisible(record);
+    await tester.tap(record);
+    await tester.pump();
+
+    await tester.tap(find.byKey(const Key("a1-v4-stop-own-production")));
+
+    await tester.pump();
+
+    final process = find.byKey(const Key("a1-v4-process-own-production"));
+
+    await tester.ensureVisible(process);
+    await tester.tap(process);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    expect(api.uploadCalls, 0);
+    expect(audio.recordingIds, hasLength(1));
+    expect(find.text("Good: I understood your request."), findsOneWidget);
+
+    await tester.ensureVisible(retrySession);
+    await tester.tap(retrySession);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    expect(api.createCalls, 2);
+    expect(retrySession, findsNothing);
+
+    final retryUpload = find.byKey(
+      const Key("a1-v4-retry-upload-own-production"),
+    );
+
+    await tester.ensureVisible(retryUpload);
+    await tester.tap(retryUpload);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    expect(api.uploadCalls, 1);
+    expect(api.uploadedPaths, ["/tmp/a1-v4-water.wav"]);
+    expect(audio.recordingIds, hasLength(1));
+    expect(find.text("Good: I understood your request."), findsOneWidget);
+  });
+
+  testWidgets(
+    'failed protected upload retries the same WAV and preserves feedback',
+    (tester) async {
+      final audio = _AudioController();
+      addTearDown(audio.dispose);
+      final api = _RetryApiService();
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: A1V4VisibleDemoScreen(
+            audioController: audio,
+            apiService: api,
+            speechRecognitionController: _SpeechController(),
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.ensureVisible(find.byKey(const Key('a1-v4-play-reference')));
+      await tester.tap(find.byKey(const Key('a1-v4-play-reference')));
+      await tester.pump();
+      audio.completePlayback();
+      await tester.pump();
+      await tester.ensureVisible(
+        find.byKey(const Key('a1-v4-record-own-production')),
+      );
+      await tester.tap(find.byKey(const Key('a1-v4-record-own-production')));
+      await tester.pump();
+      await tester.tap(find.byKey(const Key('a1-v4-stop-own-production')));
+      await tester.pump();
+      await tester.ensureVisible(
+        find.byKey(const Key('a1-v4-process-own-production')),
+      );
+      await tester.tap(find.byKey(const Key('a1-v4-process-own-production')));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+
+      expect(api.uploadCalls, 1);
+      expect(find.text('Good: I understood your request.'), findsOneWidget);
+      expect(
+        find.textContaining('practice service is unavailable'),
+        findsOneWidget,
+      );
+      final retry = find.byKey(const Key('a1-v4-retry-upload-own-production'));
+      expect(retry, findsOneWidget);
+      await tester.ensureVisible(retry);
+      await tester.tap(retry);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+
+      expect(api.uploadCalls, 2);
+      expect(api.uploadedPaths.toSet(), {'/tmp/a1-v4-water.wav'});
+      expect(audio.recordingIds, hasLength(1));
+      expect(find.text('Good: I understood your request.'), findsOneWidget);
+      expect(find.text('“I need water”'), findsOneWidget);
+      expect(retry, findsNothing);
+    },
+  );
+
+  testWidgets('unexpected save confirmation never shows SAVED', (tester) async {
+    final audio = _AudioController();
+    addTearDown(audio.dispose);
+    final api = _UnexpectedSaveApiService();
+    await tester.pumpWidget(
+      MaterialApp(
+        home: A1V4VisibleDemoScreen(
+          audioController: audio,
+          apiService: api,
+          speechRecognitionController: _SpeechController(),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.ensureVisible(find.byKey(const Key('a1-v4-play-reference')));
+    await tester.tap(find.byKey(const Key('a1-v4-play-reference')));
+    await tester.pump();
+    audio.completePlayback();
+    await tester.pump();
+
+    Future<void> recordAndProcess(String id) async {
+      final record = find.byKey(Key('a1-v4-record-$id'));
+      await tester.ensureVisible(record);
+      await tester.tap(record);
+      await tester.pump();
+      await tester.tap(find.byKey(Key('a1-v4-stop-$id')));
+      await tester.pump();
+      final process = find.byKey(Key('a1-v4-process-$id'));
+      await tester.ensureVisible(process);
+      await tester.tap(process);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+
+    await recordAndProcess('own-production');
+    await recordAndProcess('lower-support-own-production');
+    await recordAndProcess('nearby-transfer-food');
+    final save = find.byKey(const Key('a1-v4-save-session'));
+    await tester.ensureVisible(save);
+    await tester.tap(save);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    expect(
+      find.textContaining('PRACTICE COMPLETED: yes  •  SAVED: not yet'),
+      findsOneWidget,
+    );
+    expect(find.text('Session saved'), findsNothing);
+    expect(find.textContaining('unexpected response'), findsOneWidget);
   });
 
   testWidgets('needs_repair with continue fails closed', (tester) async {

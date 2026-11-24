@@ -94,6 +94,35 @@ class _AudioFake implements PronunciationAudioController {
 }
 
 void main() {
+  testWidgets("station meets basic accessibility guidelines", (tester) async {
+    final semantics = tester.ensureSemantics();
+    try {
+      final audio = _AudioFake();
+      addTearDown(audio.dispose);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: StationJourneyScreen(
+            audioController: audio,
+            journeyStore: _MemoryJourneyStore(),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        find.bySemanticsLabel("Escena de una estación de tren"),
+        findsOneWidget,
+      );
+
+      await expectLater(tester, meetsGuideline(labeledTapTargetGuideline));
+      await expectLater(tester, meetsGuideline(androidTapTargetGuideline));
+      await expectLater(tester, meetsGuideline(textContrastGuideline));
+    } finally {
+      semantics.dispose();
+    }
+  });
+
   for (final width in [390.0, 700.0, 1280.0]) {
     testWidgets('station layout fits at width $width', (tester) async {
       tester.view.physicalSize = Size(width, 800);
